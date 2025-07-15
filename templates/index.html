@@ -85,7 +85,7 @@
 
             calendarToggleHeader.addEventListener('click', () => {
                 const isCollapsed = calendarContent.style.maxHeight === '0px';
-                calendarContent.style.maxHeight = isCollapsed ? '9999px' : '0px'; // Use a large value for expansion
+                calendarContent.style.maxHeight = isCollapsed ? '300px' : '0px';
                 calendarCollapseIcon.textContent = isCollapsed ? '▼' : '▶';
             });
 

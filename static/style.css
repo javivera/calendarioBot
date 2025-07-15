@@ -14,13 +14,13 @@ body {
     color: #333;
     margin: 0;
     padding: 0;
-    height: 100dvh;
+    height: 100dvh; /* Use dynamic viewport height */
     overflow: hidden;
 }
 
 .container {
     width: 100vw;
-    height: 100dvh;
+    height: 100dvh; /* Use dynamic viewport height */
     background-color: #ffffff;
     overflow: hidden;
     display: flex;
@@ -81,7 +81,7 @@ h2 {
     padding: 15px 10px;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    flex: 1; /* Allow it to grow and shrink */
     overflow: hidden;
     min-height: 0;
 }
@@ -252,22 +252,26 @@ h2 {
 
 /* --- CALENDAR SECTION --- */
 .calendar-section {
-    padding: 10px 15px;
+    padding: 8px 15px; /* Reduced padding */
     background-color: #f8f9fa;
     border-top: 1px solid #e9ecef;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Prevent shrinking */
+    min-height: 50px; /* Ensure minimum height for header */
+    overflow: hidden;
 }
 
 .calendar-content {
-    overflow: hidden;
+    overflow-y: auto; /* Allow scrolling when expanded */
     transition: max-height 0.4s ease-in-out;
+    -webkit-overflow-scrolling: touch;
 }
 
 .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 10px; /* Reduced margin */
+    cursor: pointer;
 }
 
 .calendar-header h3 {
