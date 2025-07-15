@@ -1,0 +1,303 @@
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+/* Reset and Global Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f4f8;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+}
+
+.container {
+    width: 100%;
+    max-width: 450px;
+    background-color: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 90vh;
+}
+
+/* --- COLLAPSIBLE RESERVATIONS SECTION --- */
+.reservations {
+    padding: 15px 25px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    flex-shrink: 0;
+}
+
+.reservations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+h2 {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.collapse-icon {
+    font-size: 1.2rem;
+    transition: transform 0.3s ease;
+}
+
+.reservations-list {
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
+    padding-top: 15px;
+}
+
+.reservation-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.15);
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.reservation-item span { font-weight: 500; }
+.reservation-item span:first-child { font-weight: 600; }
+
+/* Chat Container */
+.chat-container {
+    padding: 20px 10px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+#chat-box {
+    flex-grow: 1;
+    padding: 10px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Chat Bubbles */
+.chat-bubble {
+    padding: 10px 15px;
+    border-radius: 20px;
+    max-width: 90%;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.bot-message {
+    background-color: #e9ecef;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 5px;
+}
+
+.user-message {
+    background-color: #007bff;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 5px;
+}
+
+/* --- CHAT INPUT FORM --- */
+#chat-form {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between input and button */
+    flex-shrink: 0;
+    padding: 0 10px 10px;
+}
+
+#message-input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    padding: 12px 15px;
+    border-radius: 25px;
+    font-size: 1rem;
+    background-color: #f9f9f9;
+    transition: box-shadow 0.2s;
+}
+
+#message-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+#send-button, #voice-input-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #007bff;
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+    color: white;
+}
+
+#send-button:hover, #voice-input-button:hover {
+    background-color: #0056b3;
+}
+
+#send-button:disabled, #voice-input-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* STYLES FOR MARKDOWN CONTENT */
+.bot-message table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 0.9rem;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.bot-message th, .bot-message td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.bot-message th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+}
+
+.bot-message ul, .bot-message ol {
+    padding-left: 20px;
+    margin-top: 5px;
+}
+
+.bot-message p { margin: 0; }
+
+/* Media Query for larger screens */
+@media (min-width: 768px) {
+    .container {
+        max-width: 700px;
+        height: 80vh;
+    }
+    .reservation-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+/* --- CALENDAR SECTION --- */
+.calendar-section {
+    padding: 15px 25px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    flex-shrink: 0;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.calendar-header button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+}
+
+.calendar-header button:hover {
+    background-color: #0056b3;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    text-align: center;
+}
+
+.calendar-day {
+    padding: 10px 5px;
+    border-radius: 5px;
+    background-color: #e9ecef;
+    cursor: default;
+    font-size: 0.9rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px; /* Ensure consistent height */
+}
+
+.calendar-day.occupied {
+    background-color: #28a745; /* Green for occupied */
+    color: white;
+    font-weight: 500;
+}
+
+.calendar-day.occupied:hover {
+    background-color: #218838;
+}
+
+/* Tooltip for occupied days */
+.calendar-day[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px;
+    border-radius: 5px;
+    white-space: pre-wrap; /* Allow new lines in tooltip */
+    z-index: 10;
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+    text-align: left;
+}

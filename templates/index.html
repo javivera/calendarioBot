@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservation Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="reservations">
+            <div class="reservations-header" id="reservations-toggle">
+                <h2>Proximas Reservas</h2>
+                <span class="collapse-icon" id="collapse-icon">▶</span>
+            </div>
+            <div class="reservations-list" id="reservations-list" style="max-height: 0px;">
+                {% if next_reservations %}
+                    {% for reservation in next_reservations %}
+                        <div class="reservation-item">
+                            <span>{{ reservation.guest_names }} - Cabaña {{ reservation.cabin }}</span>
+                            <span>{{ reservation.check_in_dates }} - {{ reservation.check_out_dates }}</span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No upcoming reservations.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div id="chat-box">
+                <div class="chat-bubble bot-message">Hola! Como puedo ayudarte?</div>
+            </div>
+            <form id="chat-form">
+                <input type="text" id="message-input" placeholder="Ask something..." autocomplete="off">
+                <button type="button" id="voice-input-button" aria-label="Voice Input">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3.53-2.64 6.44-6.17 6.95V21h3v2H8v-2h3v-3.05c-3.53-.51-6.17-3.42-6.17-6.95h-2c0 4.17 3.06 7.6 7 8.34V21h2v-2.66c3.94-.74 7-4.17 7-8.34h-2z"></path>
+                    </svg>
+                </button>
+                <button type="submit" id="send-button" aria-label="Send">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <div class="calendar-section">
+            <div class="calendar-header">
+                <button id="prevMonth"><</button>
+                <h3 id="currentMonthYear"></h3>
+                <button id="nextMonth">></button>
+            </div>
+            <div class="calendar-weekdays">
+                <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+            </div>
+            <div class="calendar-days" id="calendarDays"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Collapsible Section Logic ---
+            const toggleHeader = document.getElementById('reservations-toggle');
+            const reservationsList = document.getElementById('reservations-list');
+            const collapseIcon = document.getElementById('collapse-icon');
+
+            toggleHeader.addEventListener('click', () => {
+                const isCollapsed = reservationsList.style.maxHeight === '0px';
+                reservationsList.style.maxHeight = isCollapsed ? '500px' : '0px';
+                collapseIcon.textContent = isCollapsed ? '▼' : '▶';
+            });
+
+
+            // --- Chat Section Logic ---
+            const chatForm = document.getElementById('chat-form');
+            const messageInput = document.getElementById('message-input');
+            const chatBox = document.getElementById('chat-box');
+            const voiceInputButton = document.getElementById('voice-input-button');
+            const sendButton = document.getElementById('send-button');
+
+            // Speech Recognition setup
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+            if (recognition) {
+                recognition.lang = 'es-ES'; // Set language to Spanish
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+
+                voiceInputButton.addEventListener('click', () => {
+                    messageInput.value = 'Listening...';
+                    messageInput.disabled = true;
+                    sendButton.disabled = true;
+                    voiceInputButton.disabled = true;
+                    recognition.start();
+                });
+
+                recognition.addEventListener('result', (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    messageInput.value = transcript;
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    voiceInputButton.disabled = false;
+                    chatForm.dispatchEvent(new Event('submit')); // Submit the form with the voice input
+                });
+
+                recognition.addEventListener('end', () => {
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    voiceInputButton.disabled = false;
+                    if (messageInput.value === 'Listening...') {
+                        messageInput.value = ''; // Clear if no speech was detected
+                    }
+                });
+
+                recognition.addEventListener('error', (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    messageInput.value = 'Error listening. Try again.';
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    voiceInputButton.disabled = false;
+                });
+            } else {
+                voiceInputButton.style.display = 'none'; // Hide button if API not supported
+                console.warn('Speech Recognition API not supported in this browser.');
+            }
+
+            chatForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const userMessage = messageInput.value.trim();
+                if (!userMessage) return;
+                messageInput.value = '';
+
+                // Display user message
+                const userBubble = document.createElement('div');
+                userBubble.className = 'chat-bubble user-message';
+                userBubble.textContent = userMessage;
+                chatBox.appendChild(userBubble);
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: 'message=' + encodeURIComponent(userMessage)
+                    });
+
+                    const data = await response.json();
+                    
+                    // Display bot response
+                    const botBubble = document.createElement('div');
+                    botBubble.className = 'chat-bubble bot-message';
+                    botBubble.innerHTML = marked.parse(data.response);
+                    
+                    chatBox.appendChild(botBubble);
+                    chatBox.scrollTop = chatBox.scrollHeight;
+
+                    // Reload page on success to update reservations list
+                    if (data.response.toLowerCase().includes('successfully created') || data.response.toLowerCase().includes('successfully deleted')) {
+                        setTimeout(() => { window.location.reload(); }, 1500);
+                    }
+
+                } catch (error) {
+                    console.error('Error during chat:', error);
+                    const errorBubble = document.createElement('div');
+                    errorBubble.className = 'chat-bubble bot-message';
+                    errorBubble.textContent = 'Sorry, an error occurred.';
+                    chatBox.appendChild(errorBubble);
+                } finally {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            });
+
+            // --- Calendar Logic ---
+            const currentMonthYear = document.getElementById('currentMonthYear');
+            const calendarDays = document.getElementById('calendarDays');
+            const prevMonthBtn = document.getElementById('prevMonth');
+            const nextMonthBtn = document.getElementById('nextMonth');
+
+            let currentMonth = new Date().getMonth();
+            let currentYear = new Date().getFullYear();
+            let allReservations = [];
+
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+            async function fetchReservations() {
+                try {
+                    const response = await fetch('/reservations_data');
+                    const data = await response.json();
+                    allReservations = data.reservations;
+                    renderCalendar();
+                } catch (error) {
+                    console.error('Error fetching reservations:', error);
+                }
+            }
+
+            function renderCalendar() {
+                calendarDays.innerHTML = '';
+                currentMonthYear.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+                const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // Adjust to make Monday 0
+
+                // Add empty divs for days before the 1st
+                for (let i = 0; i < firstDayOfWeek; i++) {
+                    const emptyDiv = document.createElement('div');
+                    calendarDays.appendChild(emptyDiv);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayDiv = document.createElement('div');
+                    dayDiv.textContent = day;
+                    dayDiv.classList.add('calendar-day');
+
+                    const currentDate = new Date(currentYear, currentMonth, day);
+                    const formattedCurrentDate = currentDate.toISOString().split('T')[0];
+
+                    const reservationsOnDay = allReservations.filter(res => {
+                        const checkIn = new Date(res.check_in_dates);
+                        const checkOut = new Date(res.check_out_dates);
+                        // Check if the current day is within the reservation period (inclusive of check-in, exclusive of check-out)
+                        return currentDate >= checkIn && currentDate < checkOut;
+                    });
+
+                    if (reservationsOnDay.length > 0) {
+                        dayDiv.classList.add('occupied');
+                        // Add tooltip for reservation details
+                        const tooltipText = reservationsOnDay.map(res => 
+                            `${res.guest_names} - Cabaña ${res.cabin} (${res.check_in_dates} to ${res.check_out_dates})`
+                        ).join('\n');
+                        dayDiv.title = tooltipText;
+                    }
+
+                    calendarDays.appendChild(dayDiv);
+                }
+            }
+
+            prevMonthBtn.addEventListener('click', () => {
+                currentMonth--;
+                if (currentMonth < 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                }
+                renderCalendar();
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                renderCalendar();
+            });
+
+            fetchReservations(); // Initial load
+        });
+    </script>
+
+</body>
+</html>
