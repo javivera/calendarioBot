@@ -44,9 +44,15 @@ def chat_endpoint():
     try:
         response = chat.send_message(user_input)
         speak_text(response.text) # Speak the bot's response
-        return jsonify({'response': response.text})
+        
+        # Check if the response indicates a reservation was created or deleted
+        reservation_modified = False
+        if 'successfully created' in response.text.lower() or 'successfully deleted' in response.text.lower():
+            reservation_modified = True
+
+        return jsonify({'response': response.text, 'reservation_modified': reservation_modified})
     except Exception as e:
-        return jsonify({'response': f"Error: {str(e)}"}), 500
+        return jsonify({'response': f"Error: {str(e)}", 'reservation_modified': False}), 500
 
 @app.route('/reservations_data')
 def reservations_data_endpoint():

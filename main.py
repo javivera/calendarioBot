@@ -5,7 +5,7 @@ import os
 import random
 
 # Your existing reservation functions
-def make_reservation(guest_name, check_in_date, cabin,reservation_payed,total_price ,total_nights, cellphone_number="", notes=""):
+def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,reservation_payed=0, cellphone_number="", notes=""):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
     global reservations_df
 
@@ -199,7 +199,7 @@ genai.configure(api_key=api_key)
 
 tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation]
 
-system_prompt = f"You are a helpful reservation assistant. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps. Have in mind that check-in and check-out dates are inclusive. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio')."
+system_prompt = f"You are a helpful reservation assistant. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps. Have in mind that check-in and check-out dates are inclusive. If at any point the user asks for a date that its a check-out inform the user the date is available but take note that someone is going out that day. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation.  The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio')."
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
