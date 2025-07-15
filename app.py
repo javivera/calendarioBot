@@ -1,32 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 from main import chat, get_next_three_reservations, get_all_reservations
-import pyttsx3
 from datetime import datetime
 
 app = Flask(__name__)
-
-# Initialize the TTS engine
-engine = pyttsx3.init()
-# Set a faster speaking rate
-engine.setProperty('rate', 180) 
-
-def speak_text(text):
-    # Attempt to find a Spanish voice
-    voices = engine.getProperty('voices')
-    spanish_voice = None
-    for voice in voices:
-        # Check for Spanish (es) language tag
-        if 'es_ES' in voice.languages:
-            spanish_voice = voice
-            break
-    
-    if spanish_voice:
-        engine.setProperty('voice', spanish_voice.id)
-    else:
-        print("No Spanish voice found, using default.")
-
-    engine.say(text)
-    engine.runAndWait()
 
 @app.route('/')
 def index():
@@ -43,16 +19,9 @@ def chat_endpoint():
 
     try:
         response = chat.send_message(user_input)
-        speak_text(response.text) # Speak the bot's response
-        
-        # Check if the response indicates a reservation was created or deleted
-        reservation_modified = False
-        if 'successfully created' in response.text.lower() or 'successfully deleted' in response.text.lower():
-            reservation_modified = True
-
-        return jsonify({'response': response.text, 'reservation_modified': reservation_modified})
+        return jsonify({'response': response.text})
     except Exception as e:
-        return jsonify({'response': f"Error: {str(e)}", 'reservation_modified': False}), 500
+        return jsonify({'response': f"Error: {str(e)}"}), 500
 
 @app.route('/reservations_data')
 def reservations_data_endpoint():
