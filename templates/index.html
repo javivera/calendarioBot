@@ -74,8 +74,13 @@
 
             toggleHeader.addEventListener('click', () => {
                 const isCollapsed = reservationsList.style.maxHeight === '0px';
-                reservationsList.style.maxHeight = isCollapsed ? '500px' : '0px';
-                collapseIcon.textContent = isCollapsed ? '▼' : '▶';
+                if (isCollapsed) {
+                    reservationsList.style.maxHeight = reservationsList.scrollHeight + 'px';
+                    collapseIcon.textContent = '▼';
+                } else {
+                    reservationsList.style.maxHeight = '0px';
+                    collapseIcon.textContent = '▶';
+                }
             });
 
             // --- Calendar Collapsible Section Logic ---
