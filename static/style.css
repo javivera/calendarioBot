@@ -12,28 +12,27 @@ body {
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #f0f4f8;
     color: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 10px;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .container {
-    width: 100%;
-    max-width: 450px;
+    width: 100vw;
+    height: 100vh;
     background-color: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 90vh;
+    position: fixed;
+    top: 0;
+    left: 0;
 }
 
 /* --- COLLAPSIBLE RESERVATIONS SECTION --- */
 .reservations {
-    padding: 15px 25px;
+    padding: 10px 15px;
     background: linear-gradient(135deg, #007bff, #0056b3);
     color: white;
     flex-shrink: 0;
@@ -48,7 +47,7 @@ body {
 
 h2 {
     text-align: center;
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 600;
     margin: 0;
 }
@@ -61,17 +60,17 @@ h2 {
 .reservations-list {
     overflow: hidden;
     transition: max-height 0.4s ease-in-out;
-    padding-top: 15px;
+    padding-top: 10px;
 }
 
 .reservation-item {
     display: flex;
     flex-direction: column;
-    padding: 12px;
-    border-radius: 10px;
+    padding: 8px;
+    border-radius: 8px;
     background-color: rgba(255, 255, 255, 0.15);
-    margin-bottom: 10px;
-    font-size: 0.9rem;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
 }
 
 .reservation-item span { font-weight: 500; }
@@ -79,30 +78,34 @@ h2 {
 
 /* Chat Container */
 .chat-container {
-    padding: 20px 10px;
+    padding: 15px 10px;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     overflow: hidden;
+    min-height: 0;
 }
 
 #chat-box {
     flex-grow: 1;
-    padding: 10px;
+    padding: 5px;
     overflow-y: auto;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Chat Bubbles */
 .chat-bubble {
-    padding: 10px 15px;
-    border-radius: 20px;
-    max-width: 90%;
-    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 18px;
+    max-width: 85%;
+    line-height: 1.4;
     word-wrap: break-word;
+    font-size: 0.9rem;
 }
 
 .bot-message {
@@ -123,17 +126,17 @@ h2 {
 #chat-form {
     display: flex;
     align-items: center;
-    gap: 10px; /* Space between input and button */
+    gap: 8px;
     flex-shrink: 0;
-    padding: 0 10px 10px;
+    padding: 0 10px 8px;
 }
 
 #message-input {
     flex-grow: 1;
     border: 1px solid #ccc;
-    padding: 12px 15px;
-    border-radius: 25px;
-    font-size: 1rem;
+    padding: 10px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
     background-color: #f9f9f9;
     transition: box-shadow 0.2s;
 }
@@ -150,8 +153,8 @@ h2 {
     background-color: #007bff;
     border: none;
     border-radius: 50%;
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
     transition: background-color 0.2s;
     flex-shrink: 0;
@@ -198,20 +201,58 @@ h2 {
 
 /* Media Query for larger screens */
 @media (min-width: 768px) {
-    .container {
-        max-width: 700px;
-        height: 80vh;
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #f0f4f8;
+        overflow: auto;
     }
+    
+    .container {
+        width: 100%;
+        max-width: 700px;
+        height: 90vh;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        position: relative;
+        top: auto;
+        left: auto;
+    }
+    
+    .reservations {
+        padding: 15px 25px;
+    }
+    
+    h2 {
+        font-size: 1.4rem;
+    }
+    
+    .chat-container {
+        padding: 20px 10px;
+    }
+    
+    .chat-bubble {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+    
+    .calendar-section {
+        padding: 15px 25px;
+    }
+    
     .reservation-item {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
+        padding: 12px;
+        font-size: 0.9rem;
     }
 }
 
 /* --- CALENDAR SECTION --- */
 .calendar-section {
-    padding: 15px 25px;
+    padding: 10px 15px;
     background-color: #f8f9fa;
     border-top: 1px solid #e9ecef;
     flex-shrink: 0;
@@ -230,7 +271,7 @@ h2 {
 }
 
 .calendar-header h3 {
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #333;
 }
@@ -240,9 +281,9 @@ h2 {
     color: white;
     border: none;
     border-radius: 5px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.9rem;
     transition: background-color 0.2s;
 }
 
@@ -267,16 +308,16 @@ h2 {
 }
 
 .calendar-day {
-    padding: 10px 5px;
-    border-radius: 5px;
+    padding: 8px 3px;
+    border-radius: 4px;
     background-color: #e9ecef;
     cursor: default;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 40px; /* Ensure consistent height */
+    min-height: 35px;
 }
 
 .calendar-day.occupied {
