@@ -136,6 +136,17 @@ def get_all_reservations() -> list:
     reservations_df['check_in_dates'] = pd.to_datetime(reservations_df['check_in_dates'], errors='coerce')
     reservations_df['check_out_dates'] = pd.to_datetime(reservations_df['check_out_dates'], errors='coerce')
     
+    # Fill NaN values with None for JSON compatibility
+    # Identify numeric columns that might contain NaN
+    numeric_cols = ['total_nights', 'reservation_total', 'reservation_payed']
+    for col in numeric_cols:
+        if col in reservations_df.columns:
+            reservations_df[col] = reservations_df[col].fillna(pd.NA).where(pd.notna(reservations_df[col]), None)
+    
+    # Handle 'cellphone_numbers' specifically if it can be empty and cause issues
+    if 'cellphone_numbers' in reservations_df.columns:
+        reservations_df['cellphone_numbers'] = reservations_df['cellphone_numbers'].fillna('') # Fill empty strings for phone numbers
+    
     return reservations_df.to_dict('records')
 
 def get_next_three_reservations() -> list:
