@@ -47,15 +47,21 @@
         </div>
 
         <div class="calendar-section">
-            <div class="calendar-header">
-                <button id="prevMonth"><</button>
-                <h3 id="currentMonthYear"></h3>
-                <button id="nextMonth">></button>
+            <div class="calendar-header" id="calendar-toggle">
+                <h2>Calendario de Reservas</h2>
+                <span class="collapse-icon" id="calendar-collapse-icon">▶</span>
             </div>
-            <div class="calendar-weekdays">
-                <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+            <div class="calendar-content" id="calendar-content" style="max-height: 0px;">
+                <div class="calendar-header">
+                    <button id="prevMonth"><</button>
+                    <h3 id="currentMonthYear"></h3>
+                    <button id="nextMonth">></button>
+                </div>
+                <div class="calendar-weekdays">
+                    <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+                </div>
+                <div class="calendar-days" id="calendarDays"></div>
             </div>
-            <div class="calendar-days" id="calendarDays"></div>
         </div>
     </div>
 
@@ -70,6 +76,17 @@
                 const isCollapsed = reservationsList.style.maxHeight === '0px';
                 reservationsList.style.maxHeight = isCollapsed ? '500px' : '0px';
                 collapseIcon.textContent = isCollapsed ? '▼' : '▶';
+            });
+
+            // --- Calendar Collapsible Section Logic ---
+            const calendarToggleHeader = document.getElementById('calendar-toggle');
+            const calendarContent = document.getElementById('calendar-content');
+            const calendarCollapseIcon = document.getElementById('calendar-collapse-icon');
+
+            calendarToggleHeader.addEventListener('click', () => {
+                const isCollapsed = calendarContent.style.maxHeight === '0px';
+                calendarContent.style.maxHeight = isCollapsed ? '9999px' : '0px'; // Use a large value for expansion
+                calendarCollapseIcon.textContent = isCollapsed ? '▼' : '▶';
             });
 
 

@@ -217,6 +217,11 @@ h2 {
     flex-shrink: 0;
 }
 
+.calendar-content {
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
+}
+
 .calendar-header {
     display: flex;
     justify-content: space-between;
