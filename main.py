@@ -86,7 +86,6 @@ def csv_to_ics():
     
     # Create directories if they don't exist
     os.makedirs("static", exist_ok=True)
-    os.makedirs("github-pages-setup", exist_ok=True)
     
     # Write to both locations
     ics_text = '\n'.join(ics_content)
@@ -95,11 +94,6 @@ def csv_to_ics():
     with open('static/reservations.ics', 'w', encoding='utf-8') as f:
         f.write(ics_text)
     print("✅ Updated static/reservations.ics")
-    
-    # Write to GitHub Pages setup folder
-    with open('github-pages-setup/calendar.ics', 'w', encoding='utf-8') as f:
-        f.write(ics_text)
-    print("✅ Updated github-pages-setup/calendar.ics")
     
     print(f"\n🎉 Successfully converted {len(df)} reservations to ICS format!")
     return ics_text
@@ -115,8 +109,8 @@ def update_calendar_and_push():
         
         # Copy the calendar.ics to servidorCalendario folder
         servidor_calendar_path = "servidorCalendario/calendar.ics"
-        if os.path.exists("github-pages-setup/calendar.ics"):
-            shutil.copy2("github-pages-setup/calendar.ics", servidor_calendar_path)
+        if os.path.exists("static/reservations.ics"):
+            shutil.copy2("static/reservations.ics", servidor_calendar_path)
             print("✅ Copied calendar.ics to servidorCalendario folder")
         
         # Push only to servidorCalendario repository
@@ -527,6 +521,19 @@ def generate_ics_file():
     
     return f"ICS file generated successfully at {ics_file_path}"
 
+def get_calendar_link():
+    """
+    Get the calendar link for viewing reservations online
+    """
+    calendar_url = "https://javivera.github.io/calendario/"
+    calendar_ics_url = "https://javivera.github.io/calendario/calendar.ics"
+    
+    return (
+        f"📅 **Calendario de Reservas - Cabañas Las Chacras**\n\n"
+        f"Puedes ver el calendario completo con todas las reservas aquí:\n"
+        f"🌐 {calendar_url}\n\n"
+    )
+
 reservations_df = load_reservations()
 
 api_key = os.getenv("GEMIMI_API_KEY")
@@ -536,9 +543,9 @@ if not api_key:
 # Configure Gemini API
 genai.configure(api_key=api_key)
 
-tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation]
+tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link]
 
-system_prompt = f"You are a helpful reservation assistant. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reseration for a date that its a check-out inform the user the date is available but take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation.  The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'"
+system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reseration for a date that its a check-out inform the user the date is available but take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link."
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',

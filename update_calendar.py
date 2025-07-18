@@ -96,7 +96,7 @@ def csv_to_ics():
 
 def create_directories():
     """Create necessary directories if they don't exist"""
-    directories = ["static", "github-pages-setup", "servidorCalendario"]
+    directories = ["static", "servidorCalendario"]
     
     for directory in directories:
         if not os.path.exists(directory):
@@ -116,7 +116,6 @@ def save_ics_files(ics_content):
     # Define file paths
     files_to_update = [
         "static/reservations.ics",
-        "github-pages-setup/calendar.ics",
         "servidorCalendario/calendar.ics"
     ]
     
@@ -130,19 +129,6 @@ def save_ics_files(ics_content):
             success_count += 1
         except Exception as e:
             print(f"❌ Error updating {file_path}: {e}")
-    
-    # Ensure HTML files are present (copy from github-pages-setup to servidorCalendario)
-    try:
-        github_html = "github-pages-setup/index.html"
-        servidor_html = "servidorCalendario/index.html"
-        
-        if os.path.exists(github_html) and os.path.exists(servidor_html):
-            print("✅ HTML files are already up to date")
-        elif os.path.exists(github_html):
-            shutil.copy2(github_html, servidor_html)
-            print("✅ Copied HTML file to servidorCalendario")
-    except Exception as e:
-        print(f"⚠️  Note: Could not sync HTML files: {e}")
     
     return success_count == len(files_to_update)
 
