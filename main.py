@@ -3,19 +3,243 @@ from datetime import datetime, timedelta
 import google.generativeai as genai
 import os
 import random
+import subprocess
+import shutil
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Import calendar sync functionality
-try:
-    from git_calendar_sync import update_calendar_and_push
-except ImportError:
-    print("Warning: git_calendar_sync module not found. Auto-sync disabled.")
-    update_calendar_and_push = None
+# === CALENDAR SYNC FUNCTIONS (formerly git_calendar_sync.py) ===
 
-# Your existing reservation functions
+def csv_to_ics():
+    """Convert CSV reservations to ICS calendar format"""
+    
+    # Read the CSV file
+    try:
+        df = pd.read_csv('reservations.csv', parse_dates=['check_in_dates', 'check_out_dates'])
+        print(f"Found {len(df)} reservations in CSV file")
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return
+    
+    # ICS file header
+    ics_content = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Cabaña Reservations//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH"
+    ]
+    
+    # Add each reservation as an event
+    for _, reservation in df.iterrows():
+        # Format dates for ICS (YYYYMMDD format)
+        check_in = reservation['check_in_dates'].strftime('%Y%m%d')
+        check_out = reservation['check_out_dates'].strftime('%Y%m%d')
+        
+        # Create a unique ID for the event
+        guest_name_clean = reservation['guest_names'].replace(' ', '-').replace(',', '')
+        uid = f"reservation-{guest_name_clean}-{check_in}@cabana.com"
+        
+        # Create event summary
+        summary = f"Reserva: {reservation['guest_names']} - {reservation['cabin']}"
+        
+        # Create description with all details
+        description_parts = [
+            f"Huésped: {reservation['guest_names']}",
+            f"Cabaña: {reservation['cabin']}",
+            f"Noches: {reservation['total_nights']}",
+            f"Total: ${reservation['reservation_total']}",
+            f"Pagado: ${reservation['reservation_payed']}"
+        ]
+        
+        # Add phone number if available
+        if pd.notna(reservation['cellphone_numbers']) and str(reservation['cellphone_numbers']).strip():
+            description_parts.append(f"Teléfono: {reservation['cellphone_numbers']}")
+        
+        # Add notes if available
+        if pd.notna(reservation['notes']) and str(reservation['notes']).strip():
+            description_parts.append(f"Notas: {reservation['notes']}")
+        
+        description = "\\n".join(description_parts)
+        
+        # Add event to ICS content
+        ics_content.extend([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTART;VALUE=DATE:{check_in}",
+            f"DTEND;VALUE=DATE:{check_out}",
+            f"SUMMARY:{summary}",
+            f"DESCRIPTION:{description}",
+            f"LOCATION:{reservation['cabin']} - Cabaña",
+            f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+            "STATUS:CONFIRMED",
+            "TRANSP:OPAQUE",
+            "END:VEVENT"
+        ])
+        
+        print(f"Added: {reservation['guest_names']} ({reservation['cabin']}) - {check_in} to {check_out}")
+    
+    # ICS file footer
+    ics_content.append("END:VCALENDAR")
+    
+    # Create directories if they don't exist
+    os.makedirs("static", exist_ok=True)
+    os.makedirs("github-pages-setup", exist_ok=True)
+    
+    # Write to both locations
+    ics_text = '\n'.join(ics_content)
+    
+    # Write to static folder (for Flask app)
+    with open('static/reservations.ics', 'w', encoding='utf-8') as f:
+        f.write(ics_text)
+    print("✅ Updated static/reservations.ics")
+    
+    # Write to GitHub Pages setup folder
+    with open('github-pages-setup/calendar.ics', 'w', encoding='utf-8') as f:
+        f.write(ics_text)
+    print("✅ Updated github-pages-setup/calendar.ics")
+    
+    print(f"\n🎉 Successfully converted {len(df)} reservations to ICS format!")
+    return ics_text
+
+def update_calendar_and_push():
+    """
+    Updates the ICS calendar file and pushes changes to servidorCalendario repository only
+    """
+    try:
+        # Generate updated ICS file
+        print("🔄 Updating calendar.ics...")
+        csv_to_ics()
+        
+        # Copy the calendar.ics to servidorCalendario folder
+        servidor_calendar_path = "servidorCalendario/calendar.ics"
+        if os.path.exists("github-pages-setup/calendar.ics"):
+            shutil.copy2("github-pages-setup/calendar.ics", servidor_calendar_path)
+            print("✅ Copied calendar.ics to servidorCalendario folder")
+        
+        # Push only to servidorCalendario repository
+        return push_to_servidor_repository()
+        
+    except Exception as e:
+        print(f"❌ Error updating calendar: {e}")
+        return False
+
+def push_to_servidor_repository():
+    """
+    Push changes to the servidorCalendario repository
+    """
+    try:
+        print("\n📁 Pushing to servidorCalendario repository...")
+        
+        servidor_path = "servidorCalendario"
+        
+        # Check if servidorCalendario directory exists
+        if not os.path.exists(servidor_path):
+            print("❌ servidorCalendario directory not found")
+            return False
+            
+        # Check if it's a git repository
+        result = subprocess.run(['git', 'status'], 
+                              capture_output=True, 
+                              text=True, 
+                              cwd=servidor_path)
+        
+        if result.returncode != 0:
+            print("❌ servidorCalendario is not a git repository")
+            return False
+            
+        # Add the updated calendar.ics file
+        subprocess.run(['git', 'add', 'calendar.ics'], cwd=servidor_path)
+        print("✅ Added calendar.ics to servidorCalendario git")
+        
+        # Create commit message with timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        commit_message = f"Auto-update calendar: {timestamp}"
+        
+        # Commit the changes
+        result = subprocess.run(['git', 'commit', '-m', commit_message], 
+                              capture_output=True, 
+                              text=True, 
+                              cwd=servidor_path)
+        
+        if result.returncode == 0:
+            print(f"✅ Committed changes to servidorCalendario: {commit_message}")
+            
+            # Push to GitHub
+            push_result = subprocess.run(['git', 'push'], 
+                                       capture_output=True, 
+                                       text=True, 
+                                       cwd=servidor_path)
+            
+            if push_result.returncode == 0:
+                print("🚀 Successfully pushed to servidorCalendario repository!")
+                return True
+            else:
+                print(f"❌ Failed to push to servidorCalendario repository: {push_result.stderr}")
+                return False
+        else:
+            if "nothing to commit" in result.stdout:
+                print("ℹ️  No changes to commit in servidorCalendario repository")
+                return True
+            else:
+                print(f"❌ Failed to commit to servidorCalendario repository: {result.stderr}")
+                return False
+                
+    except Exception as e:
+        print(f"❌ Error pushing to servidorCalendario repository: {e}")
+        return False
+
+def git_setup_check():
+    """
+    Check if servidorCalendario repository is properly configured
+    """
+    try:
+        print("🔍 Checking servidorCalendario repository...")
+        
+        servidor_path = "servidorCalendario"
+        
+        # Check if directory exists
+        if not os.path.exists(servidor_path):
+            print("❌ servidorCalendario directory not found")
+            return False
+            
+        # Check if git is initialized
+        result = subprocess.run(['git', 'status'], 
+                              capture_output=True, 
+                              text=True, 
+                              cwd=servidor_path)
+        
+        if result.returncode != 0:
+            print("🔧 ServidorCalendario Git Setup Required:")
+            print("1. cd servidorCalendario")
+            print("2. git init")
+            print("3. git remote add origin https://github.com/yourusername/calendario-servidor.git")
+            print("4. git branch -M main")
+            print("5. git push -u origin main")
+            return False
+            
+        # Check if remote origin exists
+        result = subprocess.run(['git', 'remote', 'get-url', 'origin'], 
+                              capture_output=True, 
+                              text=True, 
+                              cwd=servidor_path)
+        
+        if result.returncode != 0:
+            print("🔧 ServidorCalendario Git Remote Required:")
+            print("cd servidorCalendario")
+            print("git remote add origin https://github.com/yourusername/calendario-servidor.git")
+            return False
+            
+        print(f"✅ ServidorCalendario repository configured with remote: {result.stdout.strip()}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error checking servidorCalendario repository: {e}")
+        return False
+
+# === RESERVATION MANAGEMENT FUNCTIONS ===
 def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,reservation_payed=0, cellphone_number="", notes=""):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
     global reservations_df
@@ -62,15 +286,14 @@ def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,
     reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
     
     # Auto-update calendar and push to GitHub
-    if update_calendar_and_push:
-        try:
-            success = update_calendar_and_push()
-            if success:
-                print("🎉 Calendar updated and pushed to GitHub!")
-            else:
-                print("⚠️  Calendar update failed, but reservation was saved.")
-        except Exception as e:
-            print(f"⚠️  Auto-sync error: {e}")
+    try:
+        success = update_calendar_and_push()
+        if success:
+            print("🎉 Calendar updated and pushed to GitHub!")
+        else:
+            print("⚠️  Calendar update failed, but reservation was saved.")
+    except Exception as e:
+        print(f"⚠️  Auto-sync error: {e}")
     
     return f"Successfully created a reservation for {guest_name}."
 
@@ -83,15 +306,14 @@ def delete_reservation(guest_name):
         reservations_df.to_csv("reservations.csv", index=False)
         
         # Auto-update calendar and push to GitHub
-        if update_calendar_and_push:
-            try:
-                success = update_calendar_and_push()
-                if success:
-                    print("🎉 Calendar updated and pushed to GitHub!")
-                else:
-                    print("⚠️  Calendar update failed, but reservation was deleted.")
-            except Exception as e:
-                print(f"⚠️  Auto-sync error: {e}")
+        try:
+            success = update_calendar_and_push()
+            if success:
+                print("🎉 Calendar updated and pushed to GitHub!")
+            else:
+                print("⚠️  Calendar update failed, but reservation was deleted.")
+        except Exception as e:
+            print(f"⚠️  Auto-sync error: {e}")
         
         return f"Successfully deleted reservation for {guest_name}."
     else:
@@ -131,15 +353,14 @@ def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cell
     reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
     
     # Auto-update calendar and push to GitHub
-    if update_calendar_and_push:
-        try:
-            success = update_calendar_and_push()
-            if success:
-                print("🎉 Calendar updated and pushed to GitHub!")
-            else:
-                print("⚠️  Calendar update failed, but reservation was modified.")
-        except Exception as e:
-            print(f"⚠️  Auto-sync error: {e}")
+    try:
+        success = update_calendar_and_push()
+        if success:
+            print("🎉 Calendar updated and pushed to GitHub!")
+        else:
+            print("⚠️  Calendar update failed, but reservation was modified.")
+    except Exception as e:
+        print(f"⚠️  Auto-sync error: {e}")
     
     return f"Successfully updated reservation for {guest_name}."
 
