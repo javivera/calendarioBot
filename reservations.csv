@@ -1,5 +1,4 @@
 guest_names,check_in_dates,check_out_dates,cellphone_numbers,total_nights,reservation_total,reservation_payed,notes,cabin
 Bernardo Scherman,2025-07-20,2025-08-01,,13,450,468000.0,No estoy segura cuanto pagó,Colibri
 Nicolás,2025-08-01,2025-08-03,,2,300,0.0,,Colibrí
-Test User,2025-08-10,2025-08-13,1234567890.0,3,450,150.0,Test reservation for auto-sync,Peperina
-Dual Sync Test,2025-08-15,2025-08-17,+9876543210,2,300,100.0,Testing dual repository sync,Colibri
+Single Sync Test,2025-08-20,2025-08-23,+5551234567,3,450,125.0,Testing single repository sync,Peperina

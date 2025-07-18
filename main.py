@@ -3,6 +3,17 @@ from datetime import datetime, timedelta
 import google.generativeai as genai
 import os
 import random
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Import calendar sync functionality
+try:
+    from git_calendar_sync import update_calendar_and_push
+except ImportError:
+    print("Warning: git_calendar_sync module not found. Auto-sync disabled.")
+    update_calendar_and_push = None
 
 # Your existing reservation functions
 def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,reservation_payed=0, cellphone_number="", notes=""):
@@ -50,6 +61,17 @@ def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,
     reservations_df = pd.concat([reservations_df, new_reservation], ignore_index=True)
     reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
     
+    # Auto-update calendar and push to GitHub
+    if update_calendar_and_push:
+        try:
+            success = update_calendar_and_push()
+            if success:
+                print("🎉 Calendar updated and pushed to GitHub!")
+            else:
+                print("⚠️  Calendar update failed, but reservation was saved.")
+        except Exception as e:
+            print(f"⚠️  Auto-sync error: {e}")
+    
     return f"Successfully created a reservation for {guest_name}."
 
 def delete_reservation(guest_name):
@@ -59,6 +81,18 @@ def delete_reservation(guest_name):
     
     if len(reservations_df) < initial_rows:
         reservations_df.to_csv("reservations.csv", index=False)
+        
+        # Auto-update calendar and push to GitHub
+        if update_calendar_and_push:
+            try:
+                success = update_calendar_and_push()
+                if success:
+                    print("🎉 Calendar updated and pushed to GitHub!")
+                else:
+                    print("⚠️  Calendar update failed, but reservation was deleted.")
+            except Exception as e:
+                print(f"⚠️  Auto-sync error: {e}")
+        
         return f"Successfully deleted reservation for {guest_name}."
     else:
         return f"Could not find a reservation for {guest_name}."
@@ -95,6 +129,18 @@ def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cell
         reservations_df.loc[idx, 'cabin'] = cabin
         
     reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
+    
+    # Auto-update calendar and push to GitHub
+    if update_calendar_and_push:
+        try:
+            success = update_calendar_and_push()
+            if success:
+                print("🎉 Calendar updated and pushed to GitHub!")
+            else:
+                print("⚠️  Calendar update failed, but reservation was modified.")
+        except Exception as e:
+            print(f"⚠️  Auto-sync error: {e}")
+    
     return f"Successfully updated reservation for {guest_name}."
 
 def load_reservations():
@@ -191,15 +237,87 @@ def format_date_spanish(date: datetime) -> str:
     month = spanish_months[date.month]
     return f"{day} de {month}"
 
+def generate_ics_file():
+    """
+    Generates an .ics (iCalendar) file with all reservations.
+    """
+    global reservations_df
+    
+    if reservations_df.empty:
+        return "No reservations to export."
+    
+    # ICS file header
+    ics_content = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Cabaña Reservations//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH"
+    ]
+    
+    for _, reservation in reservations_df.iterrows():
+        # Format dates for ICS (YYYYMMDD format)
+        check_in = reservation['check_in_dates'].strftime('%Y%m%d')
+        check_out = reservation['check_out_dates'].strftime('%Y%m%d')
+        
+        # Create a unique ID for the event
+        uid = f"reservation-{reservation['guest_names'].replace(' ', '-')}-{check_in}@cabana.com"
+        
+        # Create event summary
+        summary = f"Reserva: {reservation['guest_names']} - {reservation['cabin']}"
+        
+        # Create description with all details
+        description = f"Huésped: {reservation['guest_names']}\\n"
+        description += f"Cabaña: {reservation['cabin']}\\n"
+        description += f"Noches: {reservation['total_nights']}\\n"
+        description += f"Total: ${reservation['reservation_total']}\\n"
+        description += f"Pagado: ${reservation['reservation_payed']}\\n"
+        
+        if pd.notna(reservation['cellphone_numbers']) and reservation['cellphone_numbers']:
+            description += f"Teléfono: {reservation['cellphone_numbers']}\\n"
+        
+        if pd.notna(reservation['notes']) and reservation['notes']:
+            description += f"Notas: {reservation['notes']}\\n"
+        
+        # Add event to ICS content
+        ics_content.extend([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTART;VALUE=DATE:{check_in}",
+            f"DTEND;VALUE=DATE:{check_out}",
+            f"SUMMARY:{summary}",
+            f"DESCRIPTION:{description}",
+            f"LOCATION:{reservation['cabin']} - Cabaña",
+            f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+            "STATUS:CONFIRMED",
+            "TRANSP:OPAQUE",
+            "END:VEVENT"
+        ])
+    
+    # ICS file footer
+    ics_content.append("END:VCALENDAR")
+    
+    # Write to file
+    ics_file_path = "static/reservations.ics"
+    os.makedirs("static", exist_ok=True)
+    
+    with open(ics_file_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(ics_content))
+    
+    return f"ICS file generated successfully at {ics_file_path}"
+
 reservations_df = load_reservations()
 
 api_key = os.getenv("GEMIMI_API_KEY")
+if not api_key:
+    raise ValueError("GEMIMI_API_KEY environment variable not set")
+
 # Configure Gemini API
 genai.configure(api_key=api_key)
 
 tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation]
 
-system_prompt = f"You are a helpful reservation assistant. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps. Have in mind that check-in and check-out dates are inclusive. If at any point the user asks for a date that its a check-out inform the user the date is available but take note that someone is going out that day. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation.  The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio')."
+system_prompt = f"You are a helpful reservation assistant. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reseration for a date that its a check-out inform the user the date is available but take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation.  The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'"
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',

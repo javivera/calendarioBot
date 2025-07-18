@@ -10,7 +10,7 @@ DTEND;VALUE=DATE:20250801
 SUMMARY:Reserva: Bernardo Scherman - Colibri
 DESCRIPTION:Huésped: Bernardo Scherman\nCabaña: Colibri\nNoches: 13\nTotal: $450\nPagado: $468000.0\nNotas: No estoy segura cuanto pagó
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250718T121347Z
+DTSTAMP:20250718T122724Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -21,29 +21,18 @@ DTEND;VALUE=DATE:20250803
 SUMMARY:Reserva: Nicolás - Colibrí
 DESCRIPTION:Huésped: Nicolás\nCabaña: Colibrí\nNoches: 2\nTotal: $300\nPagado: $0.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250718T121347Z
+DTSTAMP:20250718T122724Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
 BEGIN:VEVENT
-UID:reservation-Test-User-20250810@cabana.com
-DTSTART;VALUE=DATE:20250810
-DTEND;VALUE=DATE:20250813
-SUMMARY:Reserva: Test User - Peperina
-DESCRIPTION:Huésped: Test User\nCabaña: Peperina\nNoches: 3\nTotal: $450\nPagado: $150.0\nTeléfono: 1234567890.0\nNotas: Test reservation for auto-sync
+UID:reservation-Single-Sync-Test-20250820@cabana.com
+DTSTART;VALUE=DATE:20250820
+DTEND;VALUE=DATE:20250823
+SUMMARY:Reserva: Single Sync Test - Peperina
+DESCRIPTION:Huésped: Single Sync Test\nCabaña: Peperina\nNoches: 3\nTotal: $450\nPagado: $125.0\nTeléfono: 5551234567.0\nNotas: Testing single repository sync
 LOCATION:Peperina - Cabaña
-DTSTAMP:20250718T121347Z
-STATUS:CONFIRMED
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:reservation-Dual-Sync-Test-20250815@cabana.com
-DTSTART;VALUE=DATE:20250815
-DTEND;VALUE=DATE:20250817
-SUMMARY:Reserva: Dual Sync Test - Colibri
-DESCRIPTION:Huésped: Dual Sync Test\nCabaña: Colibri\nNoches: 2\nTotal: $300\nPagado: $100.0\nTeléfono: 9876543210.0\nNotas: Testing dual repository sync
-LOCATION:Colibri - Cabaña
-DTSTAMP:20250718T121347Z
+DTSTAMP:20250718T122724Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT

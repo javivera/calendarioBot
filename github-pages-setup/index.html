@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calendar Service</title>
+</head>
+<body>
+    <h1>Calendar Service</h1>
+    <p>Calendar file: <a href="./calendar.ics">calendar.ics</a></p>
+    <p>Direct URL: <span id="calendar-url"></span></p>
+    
+    <script>
+        document.getElementById('calendar-url').textContent = window.location.href.replace('/index.html', '').replace('/#', '') + '/calendar.ics';
+    </script>
+</body>
+</html>
