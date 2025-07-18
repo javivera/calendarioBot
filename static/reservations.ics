@@ -4,24 +4,13 @@ PRODID:-//Cabaña Reservations//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 BEGIN:VEVENT
-UID:reservation-Airbnb-Guest-20250717@cabana.com
-DTSTART;VALUE=DATE:20250717
-DTEND;VALUE=DATE:20250801
-SUMMARY:Reserva: Airbnb Guest - Airbnb Booking
-DESCRIPTION:Huésped: Airbnb Guest\nCabaña: Airbnb Booking\nNoches: 15\nTotal: $0\nPagado: $0.0\nNotas: Airbnb booking - Airbnb (Not available)
-LOCATION:Airbnb Booking - Cabaña
-DTSTAMP:20250718T183922Z
-STATUS:CONFIRMED
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
 UID:reservation-Bernardo-Scherman-20250720@cabana.com
 DTSTART;VALUE=DATE:20250720
 DTEND;VALUE=DATE:20250801
 SUMMARY:Reserva: Bernardo Scherman - Colibri
 DESCRIPTION:Huésped: Bernardo Scherman\nCabaña: Colibri\nNoches: 13\nTotal: $450\nPagado: $468000.0\nNotas: No estoy segura cuanto pagó
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250718T183922Z
+DTSTAMP:20250718T191046Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -32,18 +21,7 @@ DTEND;VALUE=DATE:20250803
 SUMMARY:Reserva: Nicolás - Colibrí
 DESCRIPTION:Huésped: Nicolás\nCabaña: Colibrí\nNoches: 2\nTotal: $300\nPagado: $0.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250718T183922Z
-STATUS:CONFIRMED
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:reservation-Airbnb-Guest-20260114@cabana.com
-DTSTART;VALUE=DATE:20260114
-DTEND;VALUE=DATE:20260719
-SUMMARY:Reserva: Airbnb Guest - Airbnb Booking
-DESCRIPTION:Huésped: Airbnb Guest\nCabaña: Airbnb Booking\nNoches: 186\nTotal: $0\nPagado: $0.0\nNotas: Airbnb booking - Airbnb (Not available)
-LOCATION:Airbnb Booking - Cabaña
-DTSTAMP:20250718T183922Z
+DTSTAMP:20250718T191046Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
