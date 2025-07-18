@@ -131,6 +131,19 @@ def save_ics_files(ics_content):
         except Exception as e:
             print(f"❌ Error updating {file_path}: {e}")
     
+    # Ensure HTML files are present (copy from github-pages-setup to servidorCalendario)
+    try:
+        github_html = "github-pages-setup/index.html"
+        servidor_html = "servidorCalendario/index.html"
+        
+        if os.path.exists(github_html) and os.path.exists(servidor_html):
+            print("✅ HTML files are already up to date")
+        elif os.path.exists(github_html):
+            shutil.copy2(github_html, servidor_html)
+            print("✅ Copied HTML file to servidorCalendario")
+    except Exception as e:
+        print(f"⚠️  Note: Could not sync HTML files: {e}")
+    
     return success_count == len(files_to_update)
 
 

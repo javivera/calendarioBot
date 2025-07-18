@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cabaña Calendar - Reservations</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .calendar-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .calendar-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .calendar {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .calendar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 1.5em;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+
+        .calendar-header {
+            background: #3498db;
+            color: white;
+            padding: 10px 5px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .calendar-day {
+            background: #ecf0f1;
+            padding: 15px 5px;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+        }
+
+        .calendar-day:hover {
+            background: #bdc3c7;
+            transform: scale(1.05);
+        }
+
+        .calendar-day.other-month {
+            background: #f8f9fa;
+            color: #bdc3c7;
+        }
+
+        .calendar-day.occupied {
+            background: #e74c3c;
+            color: white;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        .calendar-day.occupied:hover {
+            background: #c0392b;
+        }
+
+        .calendar-day.today {
+            background: #f39c12;
+            color: white;
+            font-weight: bold;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .legend-available { background: #ecf0f1; }
+        .legend-occupied { background: #e74c3c; }
+        .legend-today { background: #f39c12; }
+
+        .download-section {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .download-link {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .download-link:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .reservations-list {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .reservation-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .reservation-item h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+
+        .reservation-item p {
+            margin: 5px 0;
+            color: #7f8c8d;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏡 Cabaña Calendar - Reservations</h1>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color legend-available"></div>
+                <span>Available</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-occupied"></div>
+                <span>Occupied</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-today"></div>
+                <span>Today</span>
+            </div>
+        </div>
+
+        <div class="calendar-container">
+            <div class="calendar">
+                <h2 id="current-month"></h2>
+                <div class="calendar-grid" id="current-calendar"></div>
+            </div>
+            
+            <div class="calendar">
+                <h2 id="next-month"></h2>
+                <div class="calendar-grid" id="next-calendar"></div>
+            </div>
+            
+            <div class="reservations-list">
+                <h2>📋 Current Reservations</h2>
+                <div id="reservations-container">
+                    <div class="loading">Loading reservations...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="download-section">
+            <h3>📅 Download Calendar</h3>
+            <p>Add this calendar to your favorite calendar app (Google Calendar, Outlook, Apple Calendar, etc.)</p>
+            <a href="./calendar.ics" class="download-link" download>📁 Download ICS File</a>
+            <a href="#" class="download-link" id="copy-url">📋 Copy URL</a>
+            <div id="calendar-url-display" style="margin-top: 15px; font-family: monospace; background: #ecf0f1; padding: 10px; border-radius: 5px; word-break: break-all;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Calendar functionality
+        let reservations = [];
+        let occupiedDates = new Set();
+
+        // Initialize calendar
+        document.addEventListener('DOMContentLoaded', function() {
+            setupCalendarURL();
+            loadReservations();
+            generateCalendars();
+        });
+
+        function setupCalendarURL() {
+            const baseUrl = window.location.href.replace('/index.html', '').replace('/#', '');
+            const calendarUrl = baseUrl + '/calendar.ics';
+            document.getElementById('calendar-url-display').textContent = calendarUrl;
+            
+            document.getElementById('copy-url').addEventListener('click', function(e) {
+                e.preventDefault();
+                navigator.clipboard.writeText(calendarUrl).then(function() {
+                    const btn = e.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                });
+            });
+        }
+
+        async function loadReservations() {
+            try {
+                const response = await fetch('./calendar.ics');
+                const icsData = await response.text();
+                parseICSData(icsData);
+                displayReservations();
+                updateCalendars();
+            } catch (error) {
+                console.error('Error loading calendar:', error);
+                document.getElementById('reservations-container').innerHTML = 
+                    '<div class="error">Error loading reservations. Please check if calendar.ics exists.</div>';
+            }
+        }
+
+        function parseICSData(icsData) {
+            const events = [];
+            const lines = icsData.split('\n');
+            let currentEvent = null;
+
+            for (let line of lines) {
+                line = line.trim();
+                
+                if (line === 'BEGIN:VEVENT') {
+                    currentEvent = {};
+                } else if (line === 'END:VEVENT' && currentEvent) {
+                    events.push(currentEvent);
+                    currentEvent = null;
+                } else if (currentEvent) {
+                    const [key, ...valueParts] = line.split(':');
+                    const value = valueParts.join(':');
+                    
+                    if (key === 'DTSTART;VALUE=DATE') {
+                        currentEvent.startDate = parseICSDate(value);
+                    } else if (key === 'DTEND;VALUE=DATE') {
+                        currentEvent.endDate = parseICSDate(value);
+                    } else if (key === 'SUMMARY') {
+                        currentEvent.summary = value;
+                    } else if (key === 'DESCRIPTION') {
+                        currentEvent.description = value.replace(/\\n/g, '\n');
+                    }
+                }
+            }
+
+            reservations = events;
+            
+            // Generate occupied dates
+            occupiedDates.clear();
+            events.forEach(event => {
+                const start = new Date(event.startDate);
+                const end = new Date(event.endDate);
+                
+                // Add all dates from start to end (excluding end date)
+                for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+                    occupiedDates.add(d.toISOString().split('T')[0]);
+                }
+            });
+        }
+
+        function parseICSDate(dateString) {
+            // Parse YYYYMMDD format
+            const year = parseInt(dateString.substring(0, 4));
+            const month = parseInt(dateString.substring(4, 6)) - 1; // JS months are 0-based
+            const day = parseInt(dateString.substring(6, 8));
+            return new Date(year, month, day);
+        }
+
+        function displayReservations() {
+            const container = document.getElementById('reservations-container');
+            
+            if (reservations.length === 0) {
+                container.innerHTML = '<div class="loading">No reservations found.</div>';
+                return;
+            }
+
+            const sortedReservations = reservations.sort((a, b) => 
+                new Date(a.startDate) - new Date(b.startDate)
+            );
+
+            const html = sortedReservations.map(reservation => {
+                const startDate = new Date(reservation.startDate);
+                const endDate = new Date(reservation.endDate);
+                const formattedStart = startDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                const formattedEnd = endDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                return `
+                    <div class="reservation-item">
+                        <h4>${reservation.summary}</h4>
+                        <p><strong>📅 Dates:</strong> ${formattedStart} - ${formattedEnd}</p>
+                        <p><strong>ℹ️ Details:</strong> ${reservation.description.replace(/\n/g, '<br>')}</p>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        function generateCalendars() {
+            const now = new Date();
+            const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+            generateCalendar(currentMonth, 'current-month', 'current-calendar');
+            generateCalendar(nextMonth, 'next-month', 'next-calendar');
+        }
+
+        function generateCalendar(date, headerElementId, gridElementId) {
+            const monthNames = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            // Set header
+            document.getElementById(headerElementId).textContent = 
+                `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+
+            // Generate calendar grid
+            const gridElement = document.getElementById(gridElementId);
+            gridElement.innerHTML = '';
+
+            // Add day headers
+            dayNames.forEach(dayName => {
+                const header = document.createElement('div');
+                header.className = 'calendar-header';
+                header.textContent = dayName;
+                gridElement.appendChild(header);
+            });
+
+            // Get first day of month and number of days
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+
+            // Add previous month days
+            const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 0);
+            for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day other-month';
+                dayElement.textContent = prevMonth.getDate() - i;
+                gridElement.appendChild(dayElement);
+            }
+
+            // Add current month days
+            const today = new Date();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                dayElement.textContent = day;
+
+                const currentDate = new Date(date.getFullYear(), date.getMonth(), day);
+                const dateString = currentDate.toISOString().split('T')[0];
+
+                // Check if occupied
+                if (occupiedDates.has(dateString)) {
+                    dayElement.classList.add('occupied');
+                    dayElement.title = 'This date is occupied';
+                }
+
+                // Check if today
+                if (currentDate.toDateString() === today.toDateString()) {
+                    dayElement.classList.add('today');
+                }
+
+                gridElement.appendChild(dayElement);
+            }
+
+            // Add next month days to fill the grid
+            const totalCells = gridElement.children.length;
+            const remainingCells = 42 - totalCells; // 6 rows × 7 days = 42 cells
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day other-month';
+                dayElement.textContent = day;
+                gridElement.appendChild(dayElement);
+            }
+        }
+
+        function updateCalendars() {
+            generateCalendars();
+        }
+    </script>
+</body>
+</html>
