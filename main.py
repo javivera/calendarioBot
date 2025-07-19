@@ -530,7 +530,6 @@ def get_calendar_link():
     
     return (
         f"📅 **Calendario de Reservas - Cabañas Las Chacras**\n\n"
-        f"Puedes ver el calendario completo con todas las reservas aquí:\n"
         f"🌐 {calendar_url}\n\n"
     )
 

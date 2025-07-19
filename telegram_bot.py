@@ -84,7 +84,6 @@ class TelegramBot:
         
         calendar_message = (
             "📅 **Calendario de Reservas - Cabañas Las Chacras**\n\n"
-            "Puedes ver el calendario completo con todas las reservas aquí:\n"
             "🌐 https://javivera.github.io/calendario/\n\n"
         )
         await update.message.reply_text(calendar_message, parse_mode='Markdown')
@@ -193,12 +192,9 @@ class TelegramBot:
                 logger.info("📅 Calendar link requested via keyword detection")
                 calendar_message = (
                     "📅 **Calendario de Reservas - Cabañas Las Chacras**\n\n"
-                    "Puedes ver el calendario completo con todas las reservas aquí:\n"
                     "🌐 https://javivera.github.io/calendario/\n\n"
-                    "**Para agregar a tu calendario:**\n"
-                    "📱 Descarga el archivo ICS desde la página web\n"
-                    "📅 O usa este enlace directo: https://javivera.github.io/calendario/calendar.ics\n\n"
-                    "Compatible con Google Calendar, Outlook, Apple Calendar y más!"
+                
+                  
                 )
                 await update.message.reply_text(calendar_message, parse_mode='Markdown')
                 return
