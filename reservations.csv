@@ -1,3 +1,7 @@
-guest_names,check_in_dates,check_out_dates,cellphone_numbers,total_nights,reservation_total,reservation_payed,notes,cabin
-Bernardo Scherman,2025-07-20,2025-08-01,,13,450,468000.0,No estoy segura cuanto pagó,Colibri
-Nicolás,2025-08-01,2025-08-03,,2,300,0.0,,Colibrí
+guest_names,check_in_dates,check_out_dates,cellphone_numbers,total_nights,reservation_total,reservation_payed,notes,cabin,price_per_night,reservation_total_ARS,reservation_payed_ARS,price_per_night_ARS
+Bernardo Scherman,2025-07-20,2025-08-01,,13,936000.0,936000.0,No estoy segura cuanto pagó,Colibri,150.0,0.0,0.0,0.0
+Nicolás,2025-08-01,2025-08-03,,2,160000.0,160000.0,,Colibrí,150.0,0.0,0.0,0.0
+Airbnb Guest,2025-08-03,2025-08-04,,1,0.0,0.0,Airbnb booking - Airbnb (Not available),Colibri,,0.0,0.0,0.0
+Victor,2025-08-08,2025-08-10,,2,156000.0,156000.0,,Colibrí,150.0,0.0,0.0,0.0
+Diego Gustavino,2025-08-14,2025-08-17,,3,180.0,0.0,Es por booking.,Colibrí,60.0,0.0,0.0,0.0
+Sebastián Piallis,2025-09-19,2025-09-22,,3,180.0,81.0,Vienen por Booking,Colibrí,150.0,0.0,0.0,0.0

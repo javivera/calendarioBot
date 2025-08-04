@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # === CALENDAR SYNC FUNCTIONS (formerly git_calendar_sync.py) ===
-
 def csv_to_ics():
     """Convert CSV reservations to ICS calendar format"""
     
@@ -50,9 +49,18 @@ def csv_to_ics():
             f"Huésped: {reservation['guest_names']}",
             f"Cabaña: {reservation['cabin']}",
             f"Noches: {reservation['total_nights']}",
+            f"Precio por noche: ${reservation.get('price_per_night', 150)}",
             f"Total: ${reservation['reservation_total']}",
             f"Pagado: ${reservation['reservation_payed']}"
         ]
+        
+        # Add ARS pricing if available
+        if reservation.get('price_per_night_ARS', 0) > 0:
+            description_parts.append(f"Precio por noche (ARS): ${reservation.get('price_per_night_ARS', 0)}")
+        if reservation.get('reservation_total_ARS', 0) > 0:
+            description_parts.append(f"Total (ARS): ${reservation.get('reservation_total_ARS', 0)}")
+        if reservation.get('reservation_payed_ARS', 0) > 0:
+            description_parts.append(f"Pagado (ARS): ${reservation.get('reservation_payed_ARS', 0)}")
         
         # Add phone number if available
         if pd.notna(reservation['cellphone_numbers']) and str(reservation['cellphone_numbers']).strip():
@@ -234,7 +242,7 @@ def git_setup_check():
         return False
 
 # === RESERVATION MANAGEMENT FUNCTIONS ===
-def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,reservation_payed=0, cellphone_number="", notes=""):
+def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_number="", notes="", price_per_night=None, price_per_night_ARS=None, reservation_total_ARS=0, total_price=0, reservation_payed_ARS=0,reservation_payed=0):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
     global reservations_df
 
@@ -262,7 +270,24 @@ def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,
         conflicts['check_out_dates'] = conflicts['check_out_dates'].dt.strftime('%Y-%m-%d')
         return f"Could not make reservation. The dates conflict with the following booking(s):\n{conflicts.to_string(index=False)}"
 
-    total_price = int(total_nights) * 150
+    # Calculate total price based on price_per_night if provided, otherwise use default $150
+    if price_per_night is not None:
+        calculated_price_per_night = float(price_per_night)
+        total_price = int(total_nights) * calculated_price_per_night
+        print(f"--> Debug: Using custom price per night: ${price_per_night} x {total_nights} nights = ${total_price}")
+    else:
+        calculated_price_per_night = 150.0
+        total_price = int(total_nights) * 150
+        print(f"--> Debug: Using default price per night: $150 x {total_nights} nights = ${total_price}")
+
+    # Calculate ARS pricing if provided
+    if price_per_night_ARS is not None:
+        calculated_price_per_night_ARS = float(price_per_night_ARS)
+        calculated_reservation_total_ARS = int(total_nights) * calculated_price_per_night_ARS
+        print(f"--> Debug: Using ARS price per night: ${price_per_night_ARS} x {total_nights} nights = ${calculated_reservation_total_ARS}")
+    else:
+        calculated_price_per_night_ARS = 0.0
+        calculated_reservation_total_ARS = float(reservation_total_ARS)
 
     new_reservation = pd.DataFrame([{
         "guest_names": guest_name,
@@ -272,6 +297,10 @@ def make_reservation(guest_name, check_in_date, total_price ,total_nights,cabin,
         "cellphone_numbers": cellphone_number,
         "total_nights": int(total_nights),
         "reservation_total": total_price,
+        "price_per_night": calculated_price_per_night,
+        "reservation_total_ARS": calculated_reservation_total_ARS,
+        "reservation_payed_ARS": float(reservation_payed_ARS),
+        "price_per_night_ARS": calculated_price_per_night_ARS,
         "notes": notes,
         "cabin": cabin
     }])
@@ -313,7 +342,7 @@ def delete_reservation(guest_name):
     else:
         return f"Could not find a reservation for {guest_name}."
 
-def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cellphone_number=None, total_nights=None, reservation_total=None, reservation_payed=None, notes=None, cabin=None):
+def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cellphone_number=None, total_nights=None, reservation_total=None, reservation_payed=None, notes=None, cabin=None, price_per_night=None, reservation_total_ARS=None, reservation_payed_ARS=None, price_per_night_ARS=None):
     global reservations_df
     
     # Find the reservation by guest_name
@@ -337,6 +366,14 @@ def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cell
         reservations_df.loc[idx, 'reservation_total'] = float(reservation_total)
     if reservation_payed is not None:
         reservations_df.loc[idx, 'reservation_payed'] = float(reservation_payed)
+    if price_per_night is not None:
+        reservations_df.loc[idx, 'price_per_night'] = float(price_per_night)
+    if reservation_total_ARS is not None:
+        reservations_df.loc[idx, 'reservation_total_ARS'] = float(reservation_total_ARS)
+    if reservation_payed_ARS is not None:
+        reservations_df.loc[idx, 'reservation_payed_ARS'] = float(reservation_payed_ARS)
+    if price_per_night_ARS is not None:
+        reservations_df.loc[idx, 'price_per_night_ARS'] = float(price_per_night_ARS)
     if notes is not None:
         reservations_df.loc[idx, 'notes'] = notes
     if cabin is not None:
@@ -366,11 +403,25 @@ def load_reservations():
         )
         if 'total_price' in df.columns:
             df = df.drop(columns=['total_price'])
+        
+        # Add price_per_night column if it doesn't exist (for backward compatibility)
+        if 'price_per_night' not in df.columns:
+            df['price_per_night'] = 150.0  # Default rate for existing reservations
+        
+        # Add ARS columns if they don't exist (for backward compatibility)
+        if 'reservation_total_ARS' not in df.columns:
+            df['reservation_total_ARS'] = 0.0
+        if 'reservation_payed_ARS' not in df.columns:
+            df['reservation_payed_ARS'] = 0.0
+        if 'price_per_night_ARS' not in df.columns:
+            df['price_per_night_ARS'] = 0.0
+            
         return df
     except FileNotFoundError:
         df = pd.DataFrame(columns=[
             'guest_names', 'check_in_dates', 'check_out_dates', 'cellphone_numbers',
-            'total_nights', 'reservation_payed', 'reservation_total', 'notes', 'cabin'
+            'total_nights', 'reservation_payed', 'reservation_total', 'price_per_night', 
+            'reservation_total_ARS', 'reservation_payed_ARS', 'price_per_night_ARS', 'notes', 'cabin'
         ])
         df['check_in_dates'] = pd.to_datetime(df['check_in_dates'])
         df['check_out_dates'] = pd.to_datetime(df['check_out_dates'])
@@ -399,7 +450,8 @@ def get_all_reservations() -> list:
     
     # Fill NaN values with None for JSON compatibility
     # Identify numeric columns that might contain NaN
-    numeric_cols = ['total_nights', 'reservation_total', 'reservation_payed']
+    numeric_cols = ['total_nights', 'reservation_total', 'reservation_payed', 'price_per_night', 
+                   'reservation_total_ARS', 'reservation_payed_ARS', 'price_per_night_ARS']
     for col in numeric_cols:
         if col in reservations_df.columns:
             reservations_df[col] = reservations_df[col].fillna(pd.NA).where(pd.notna(reservations_df[col]), None)
@@ -442,6 +494,7 @@ def get_next_three_reservations() -> list:
         print(f"--> Debug: Error in get_next_three_reservations: {str(e)}")
         return []
 
+# === CALENDAR LINK FUNCTIONS ===
 def format_date_spanish(date: datetime) -> str:
     """Formats a datetime object as 'day month' in Spanish (e.g., '14 Julio')."""
     spanish_months = [
@@ -485,8 +538,17 @@ def generate_ics_file():
         description = f"Huésped: {reservation['guest_names']}\\n"
         description += f"Cabaña: {reservation['cabin']}\\n"
         description += f"Noches: {reservation['total_nights']}\\n"
+        description += f"Precio por noche: ${reservation.get('price_per_night', 150)}\\n"
         description += f"Total: ${reservation['reservation_total']}\\n"
         description += f"Pagado: ${reservation['reservation_payed']}\\n"
+        
+        # Add ARS pricing if available
+        if reservation.get('price_per_night_ARS', 0) > 0:
+            description += f"Precio por noche (ARS): ${reservation.get('price_per_night_ARS', 0)}\\n"
+        if reservation.get('reservation_total_ARS', 0) > 0:
+            description += f"Total (ARS): ${reservation.get('reservation_total_ARS', 0)}\\n"
+        if reservation.get('reservation_payed_ARS', 0) > 0:
+            description += f"Pagado (ARS): ${reservation.get('reservation_payed_ARS', 0)}\\n"
         
         if pd.notna(reservation['cellphone_numbers']) and reservation['cellphone_numbers']:
             description += f"Teléfono: {reservation['cellphone_numbers']}\\n"
@@ -533,6 +595,7 @@ def get_calendar_link():
         f"🌐 {calendar_url}\n\n"
     )
 
+# === MAIN PROGRAM ===
 reservations_df = load_reservations()
 
 api_key = os.getenv("GEMIMI_API_KEY")
@@ -544,7 +607,7 @@ genai.configure(api_key=api_key)
 
 tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link]
 
-system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reseration for a date that its a check-out inform the user the date is available but take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link."
+system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation."
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
