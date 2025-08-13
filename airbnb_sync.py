@@ -128,61 +128,73 @@ class AirbnbCalendarSync:
         return df_filtered
     
     def add_airbnb_reservations(self, df, blocked_dates):
-        """Add new Airbnb reservations to the dataframe"""
+        """Add new Airbnb reservations to the dataframe, skipping those without a guest name."""
         new_reservations = []
         skipped_count = 0
-        
+        skipped_no_guest = 0
+
         for booking in blocked_dates:
             start_date = booking['start']
             end_date = booking['end']
-            
+            summary = booking.get('summary', '').strip()
+
+            # Skip if no guest name in summary
+            if not summary or summary.lower() in ['airbnb booking', '']:
+                logger.info(f"⏩ Skipping Airbnb reservation with missing guest name: {start_date.date()} to {end_date.date()}")
+                skipped_no_guest += 1
+                continue
+
             # Calculate nights
             nights = (end_date - start_date).days
-            
-            # Skip if no nights (same day events)
-            if nights <= 0:
+
+            # Skip if less than 2 nights (1 night reservations are ignored)
+            if nights < 2:
+                logger.info(f"⏩ Skipping short Airbnb reservation ({nights} night{'s' if nights != 1 else ''}): {start_date.date()} to {end_date.date()}")
+                skipped_count += 1
                 continue
-            
+
             # Skip if reservation is longer than 31 nights
             if nights > 31:
                 logger.info(f"⏩ Skipping long Airbnb reservation ({nights} nights): {start_date.date()} to {end_date.date()}")
                 skipped_count += 1
                 continue
-            
+
             # Check if this reservation overlaps with any existing reservation
             overlapping_reservation = self.find_overlapping_reservation(df, start_date, end_date)
             if overlapping_reservation is not None:
                 logger.info(f"⏩ Skipping Airbnb reservation due to overlap: {start_date.date()} to {end_date.date()}")
                 skipped_count += 1
                 continue
-            
-            logger.info(f"➕ Adding new Airbnb reservation: {start_date.date()} to {end_date.date()}")
-            
+
+            logger.info(f"➕ Adding new Airbnb reservation: {start_date.date()} to {end_date.date()} for guest '{summary}'")
+
             # Create reservation entry
             reservation = {
-                'guest_names': self.airbnb_guest_name,
+                'guest_names': summary,
                 'check_in_dates': start_date,
                 'check_out_dates': end_date,
                 'cellphone_numbers': '',
                 'total_nights': nights,
                 'reservation_total': 0,
                 'reservation_payed': 0,
-                'notes': f'Airbnb booking - {booking["summary"]}',
+                'notes': f'Airbnb booking - {summary}',
                 'cabin': self.airbnb_cabin
             }
-            
+
             new_reservations.append(reservation)
-        
+
         if new_reservations:
             new_df = pd.DataFrame(new_reservations)
             df = pd.concat([df, new_df], ignore_index=True)
             logger.info(f"➕ Added {len(new_reservations)} new Airbnb reservations")
         else:
             logger.info("ℹ️ No new Airbnb reservations to add")
-        
+
         if skipped_count > 0:
             logger.info(f"⏩ Skipped {skipped_count} reservations (overlaps or too long)")
-        
+        if skipped_no_guest > 0:
+            logger.info(f"⏩ Skipped {skipped_no_guest} reservations with missing guest name")
+
         return df
     
     def clean_cancelled_airbnb_reservations(self, df, blocked_dates):

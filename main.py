@@ -48,19 +48,27 @@ def csv_to_ics():
         description_parts = [
             f"Huésped: {reservation['guest_names']}",
             f"Cabaña: {reservation['cabin']}",
-            f"Noches: {reservation['total_nights']}",
-            f"Precio por noche: ${reservation.get('price_per_night', 150)}",
-            f"Total: ${reservation['reservation_total']}",
-            f"Pagado: ${reservation['reservation_payed']}"
+            f"Noches: {reservation['total_nights']}"
         ]
         
-        # Add ARS pricing if available
-        if reservation.get('price_per_night_ARS', 0) > 0:
-            description_parts.append(f"Precio por noche (ARS): ${reservation.get('price_per_night_ARS', 0)}")
-        if reservation.get('reservation_total_ARS', 0) > 0:
-            description_parts.append(f"Total (ARS): ${reservation.get('reservation_total_ARS', 0)}")
-        if reservation.get('reservation_payed_ARS', 0) > 0:
-            description_parts.append(f"Pagado (ARS): ${reservation.get('reservation_payed_ARS', 0)}")
+        # Check if this reservation has ARS pricing (prioritize ARS over USD)
+        has_ars_pricing = (reservation.get('price_per_night_ARS', 0) > 0 or 
+                          reservation.get('reservation_total_ARS', 0) > 0 or
+                          reservation.get('reservation_payed_ARS', 0) > 0)
+        
+        if has_ars_pricing:
+            # Show ARS pricing
+            if reservation.get('price_per_night_ARS', 0) > 0:
+                description_parts.append(f"Precio por noche: ${reservation.get('price_per_night_ARS', 0)} ARS")
+            if reservation.get('reservation_total_ARS', 0) > 0:
+                description_parts.append(f"Total: ${reservation.get('reservation_total_ARS', 0)} ARS")
+            if reservation.get('reservation_payed_ARS', 0) > 0:
+                description_parts.append(f"Pagado: ${reservation.get('reservation_payed_ARS', 0)} ARS")
+        else:
+            # Show USD pricing
+            description_parts.append(f"Precio por noche: ${reservation.get('price_per_night', 150)} USD")
+            description_parts.append(f"Total: ${reservation['reservation_total']} USD")
+            description_parts.append(f"Pagado: ${reservation['reservation_payed']} USD")
         
         # Add phone number if available
         if pd.notna(reservation['cellphone_numbers']) and str(reservation['cellphone_numbers']).strip():
@@ -92,16 +100,16 @@ def csv_to_ics():
     # ICS file footer
     ics_content.append("END:VCALENDAR")
     
-    # Create directories if they don't exist
-    os.makedirs("static", exist_ok=True)
+    # Create servidorCalendario directory if it doesn't exist
+    os.makedirs("servidorCalendario", exist_ok=True)
     
-    # Write to both locations
+    # Write to servidorCalendario location only (no more Flask app)
     ics_text = '\n'.join(ics_content)
     
-    # Write to static folder (for Flask app)
-    with open('static/reservations.ics', 'w', encoding='utf-8') as f:
+    # Write directly to servidorCalendario folder
+    with open('servidorCalendario/calendar.ics', 'w', encoding='utf-8') as f:
         f.write(ics_text)
-    print("✅ Updated static/reservations.ics")
+    print("✅ Updated servidorCalendario/calendar.ics")
     
     print(f"\n🎉 Successfully converted {len(df)} reservations to ICS format!")
     return ics_text
@@ -111,17 +119,11 @@ def update_calendar_and_push():
     Updates the ICS calendar file and pushes changes to servidorCalendario repository only
     """
     try:
-        # Generate updated ICS file
+        # Generate updated ICS file directly in servidorCalendario folder
         print("🔄 Updating calendar.ics...")
         csv_to_ics()
         
-        # Copy the calendar.ics to servidorCalendario folder
-        servidor_calendar_path = "servidorCalendario/calendar.ics"
-        if os.path.exists("static/reservations.ics"):
-            shutil.copy2("static/reservations.ics", servidor_calendar_path)
-            print("✅ Copied calendar.ics to servidorCalendario folder")
-        
-        # Push only to servidorCalendario repository
+        # Push to servidorCalendario repository
         return push_to_servidor_repository()
         
     except Exception as e:
@@ -293,10 +295,10 @@ def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_n
         "guest_names": guest_name,
         "check_in_dates": check_in,
         "check_out_dates": check_out,
-        "reservation_payed": reservation_payed,
         "cellphone_numbers": cellphone_number,
         "total_nights": int(total_nights),
         "reservation_total": total_price,
+        "reservation_payed": reservation_payed,
         "price_per_night": calculated_price_per_night,
         "reservation_total_ARS": calculated_reservation_total_ARS,
         "reservation_payed_ARS": float(reservation_payed_ARS),
@@ -420,7 +422,7 @@ def load_reservations():
     except FileNotFoundError:
         df = pd.DataFrame(columns=[
             'guest_names', 'check_in_dates', 'check_out_dates', 'cellphone_numbers',
-            'total_nights', 'reservation_payed', 'reservation_total', 'price_per_night', 
+            'total_nights', 'reservation_total', 'reservation_payed', 'price_per_night', 
             'reservation_total_ARS', 'reservation_payed_ARS', 'price_per_night_ARS', 'notes', 'cabin'
         ])
         df['check_in_dates'] = pd.to_datetime(df['check_in_dates'])
@@ -607,7 +609,7 @@ genai.configure(api_key=api_key)
 
 tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link]
 
-system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation."
+system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation. Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
