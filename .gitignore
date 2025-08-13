@@ -7,6 +7,7 @@ __pycache__/
 *$py.class
 *.so
 
+servidorCalendario/
 # Distribution / packaging
 .Python
 build/
