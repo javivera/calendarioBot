@@ -282,6 +282,9 @@ class AirbnbCalendarSync:
         # Load existing reservations
         df = self.load_reservations()
         
+        # Remove Airbnb reservations that are no longer in the Airbnb calendar
+        df = self.clean_cancelled_airbnb_reservations(df, blocked_dates)
+        
         # Add new Airbnb reservations (duplicates are automatically checked)
         df = self.add_airbnb_reservations(df, blocked_dates)
         

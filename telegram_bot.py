@@ -9,7 +9,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 import whisper
 import main  # Import your existing main.py functions
-
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 # Load environment variables
 load_dotenv()
 

@@ -243,6 +243,23 @@ def git_setup_check():
         print(f"❌ Error checking servidorCalendario repository: {e}")
         return False
 
+def day_month_spanish() -> str:
+    """
+    Return the current date and time in Spanish format.
+
+    Example: '20 de Agosto de 2025 18:35:12'
+    """
+    months_es = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    now = datetime.now()
+    day = now.day
+    month = months_es[now.month - 1]
+    year = now.year
+    time_str = now.strftime("%H:%M:%S")
+    return f"{day} de {month} de {year} {time_str}"
+
 # === RESERVATION MANAGEMENT FUNCTIONS ===
 def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_number="", notes="", price_per_night=None, price_per_night_ARS=None, reservation_total_ARS=0, total_price=0, reservation_payed_ARS=0,reservation_payed=0):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
@@ -607,9 +624,9 @@ if not api_key:
 # Configure Gemini API
 genai.configure(api_key=api_key)
 
-tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link]
+tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link,day_month_spanish]
 
-system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. Today's date is {datetime.now().strftime('%Y-%m-%d')}. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation. Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"
+system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. In order to check today's date is you can use day_month_spanish function. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year unless the date provided is in the past (before the current date) in that case assume its for the next year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation. Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
