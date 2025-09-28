@@ -10,6 +10,42 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Helper to save reservations with desired column order
+def save_reservations_file(df):
+    """Save reservations.csv enforcing a specific column order.
+
+    Desired order (best-effort; only existing columns are included):
+    guest_names, check_in_dates, check_out_dates, price_per_night,
+    reservation_payed, reservation_total, total_nights,
+    reservation_total_ARS, reservation_payed_ARS, price_per_night_ARS,
+    cabin, notes, cellphone_numbers
+    Any other columns present will be appended after these.
+    """
+    try:
+        df_to_save = df.copy()
+        desired_order = [
+            'guest_names', 'check_in_dates', 'check_out_dates', 'price_per_night',
+            'reservation_payed', 'reservation_total', 'total_nights',
+            'reservation_total_ARS', 'reservation_payed_ARS', 'price_per_night_ARS',
+            'cabin', 'notes', 'cellphone_numbers'
+        ]
+
+        # Build final column list: include desired columns (if present) in order,
+        # then append any other columns that exist in the DataFrame but weren't listed.
+        existing_cols = list(df_to_save.columns)
+        ordered_cols = [c for c in desired_order if c in existing_cols]
+        remaining = [c for c in existing_cols if c not in ordered_cols]
+        final_cols = ordered_cols + remaining
+
+        # Reorder DataFrame when appropriate
+        if final_cols:
+            df_to_save = df_to_save[final_cols]
+
+        df_to_save.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
+        print("✅ Saved reservations.csv with enforced column order")
+    except Exception as e:
+        print(f"❌ Error saving reservations file: {e}")
+
 # === CALENDAR SYNC FUNCTIONS (formerly git_calendar_sync.py) ===
 def csv_to_ics():
     """Convert CSV reservations to ICS calendar format"""
@@ -261,7 +297,7 @@ def day_month_spanish() -> str:
     return f"{day} de {month} de {year} {time_str}"
 
 # === RESERVATION MANAGEMENT FUNCTIONS ===
-def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_number="", notes="", price_per_night=None, price_per_night_ARS=None, reservation_total_ARS=0, total_price=0, reservation_payed_ARS=0,reservation_payed=0):
+def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_number="", notes="", price_per_night=0, price_per_night_ARS=0, reservation_total_ARS=0, total_price=0, reservation_payed_ARS=0,reservation_payed=0):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
     global reservations_df
 
@@ -294,19 +330,19 @@ def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_n
         calculated_price_per_night = float(price_per_night)
         total_price = int(total_nights) * calculated_price_per_night
         print(f"--> Debug: Using custom price per night: ${price_per_night} x {total_nights} nights = ${total_price}")
-    else:
-        calculated_price_per_night = 150.0
-        total_price = int(total_nights) * 150
-        print(f"--> Debug: Using default price per night: $150 x {total_nights} nights = ${total_price}")
+    # else:
+        # calculated_price_per_night = 0
+        # total_price = int(total_nights) * 150
+        # print(f"--> Debug: Using default price per night: $150 x {total_nights} nights = ${total_price}")
 
     # Calculate ARS pricing if provided
     if price_per_night_ARS is not None:
         calculated_price_per_night_ARS = float(price_per_night_ARS)
         calculated_reservation_total_ARS = int(total_nights) * calculated_price_per_night_ARS
         print(f"--> Debug: Using ARS price per night: ${price_per_night_ARS} x {total_nights} nights = ${calculated_reservation_total_ARS}")
-    else:
-        calculated_price_per_night_ARS = 0.0
-        calculated_reservation_total_ARS = float(reservation_total_ARS)
+    # else:
+    #     calculated_price_per_night_ARS = 0.0
+    #     calculated_reservation_total_ARS = 0
 
     new_reservation = pd.DataFrame([{
         "guest_names": guest_name,
@@ -325,7 +361,7 @@ def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_n
     }])
     
     reservations_df = pd.concat([reservations_df, new_reservation], ignore_index=True)
-    reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
+    save_reservations_file(reservations_df)
     
     # Auto-update calendar and push to GitHub
     try:
@@ -345,7 +381,7 @@ def delete_reservation(guest_name):
     reservations_df = reservations_df[reservations_df['guest_names'] != guest_name]
     
     if len(reservations_df) < initial_rows:
-        reservations_df.to_csv("reservations.csv", index=False)
+        save_reservations_file(reservations_df)
         
         # Auto-update calendar and push to GitHub
         try:
@@ -400,7 +436,7 @@ def modify_reservation(guest_name, check_in_date=None, check_out_date=None, cell
             return f"Error: Invalid cabin '{cabin}'. Please choose 'Colibri' or 'Peperina'."
         reservations_df.loc[idx, 'cabin'] = cabin
         
-    reservations_df.to_csv("reservations.csv", index=False, date_format='%Y-%m-%d')
+    save_reservations_file(reservations_df)
     
     # Auto-update calendar and push to GitHub
     try:
@@ -626,7 +662,27 @@ genai.configure(api_key=api_key)
 
 tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link,day_month_spanish]
 
-system_prompt = f"You are a helpful reservation assistant for Cabañas Las Chacras. In order to check today's date is you can use day_month_spanish function. Before making a new reservation, check for existing bookings and ensure no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation for a date that its a check-out inform the user the date is available but he should take note that someone is going out that day and then proceed to make the reservation. Always assume the reservations year is the current year unless the date provided is in the past (before the current date) in that case assume its for the next year. If there is a conflict, inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind that the amount of nights is the difference between check-in and check-out dates. Before performing any function call present the user with appropiate information and ask for confirmation. The current reservation schedule is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes, not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a new reservation you should always ask for the guest name, check-in date, cabin name, this are necessary. Then you either need a check out date or the total nights in which case you can calculate the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation. Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"
+system_prompt = f"""You are a helpful reservation assistant for Cabañas Las Chacras. In order to check today's date 
+is you can use day_month_spanish function. Before making a new reservation, check for existing bookings and ensure 
+no overlaps (unless check-in and check-out dates are the same). If at any point the user asks to make a reservation 
+for a date that its a check-out inform the user the date is available but he should take note that someone is going out 
+that day and then proceed to make the reservation. Always assume the reservations year is the current year unless the date 
+provided is in the past (before the current date) in that case assume its for the next year. If there is a conflict, 
+inform the user and do not proceed with the reservation. Use the provided tools to manage reservations. Have in mind 
+that the amount of nights is the difference between check-in and check-out dates. Before performing any function call 
+present the user with appropiate information and ask for confirmation. The current reservation schedule 
+is:\n{read_the_reservation_schedule()}. When giving information about reservations, use the format 'day month' in 
+Spanish (e.g., '14 Julio'). When answering be concise and to the point. Have in mind that sometimes currency will be in 
+argentinian pesos (ARS) and sometimes un dollars (USD). If the number is more than 3 digits its probably in pesos, 
+but when in doubt ask the user which currency he is referring to. Try to give short informative answers. And sometimes,
+not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 
+'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see 
+reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a 
+new reservation you should always, NO EXCEPTION, ask for: guest name, check-in date and cabin name, always ask for all this, 
+dont assume. Then you either need a check out date or the total nights in which case you can calculate 
+the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the 
+total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation.
+Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"""
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',

@@ -10,7 +10,7 @@ DTEND;VALUE=DATE:20250801
 SUMMARY:Reserva: Bernardo Scherman - Colibri
 DESCRIPTION:Huésped: Bernardo Scherman\nCabaña: Colibri\nNoches: 13\nTotal: $0.0\nPagado: $0.0\nNotas: No estoy segura cuanto pagó
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -21,7 +21,7 @@ DTEND;VALUE=DATE:20250803
 SUMMARY:Reserva: Nicolás - Colibrí
 DESCRIPTION:Huésped: Nicolás\nCabaña: Colibrí\nNoches: 2\nTotal: $0.0\nPagado: $0.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -32,7 +32,7 @@ DTEND;VALUE=DATE:20250810
 SUMMARY:Reserva: Victor - Colibrí
 DESCRIPTION:Huésped: Victor\nCabaña: Colibrí\nNoches: 2\nTotal: $0.0\nPagado: $0.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -43,7 +43,7 @@ DTEND;VALUE=DATE:20250817
 SUMMARY:Reserva: Diego Gustavino - Colibrí
 DESCRIPTION:Huésped: Diego Gustavino\nCabaña: Colibrí\nNoches: 3\nTotal: $180.0\nPagado: $0.0\nNotas: Es por booking.
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -54,7 +54,7 @@ DTEND;VALUE=DATE:20250825
 SUMMARY:Reserva: Esteban - Colibrí
 DESCRIPTION:Huésped: Esteban\nCabaña: Colibrí\nNoches: 7\nTotal: $0.0\nPagado: $0.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -65,7 +65,7 @@ DTEND;VALUE=DATE:20250912
 SUMMARY:Reserva: Victoria Gisoni - Colibri
 DESCRIPTION:Huésped: Victoria Gisoni\nCabaña: Colibri\nNoches: 4\nTotal: $600.0\nPagado: $0.0
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -76,7 +76,7 @@ DTEND;VALUE=DATE:20250922
 SUMMARY:Reserva: Sebastián Piallis - Colibrí
 DESCRIPTION:Huésped: Sebastián Piallis\nCabaña: Colibrí\nNoches: 3\nTotal: $180.0\nPagado: $81.0\nNotas: Vienen por Booking
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -87,7 +87,7 @@ DTEND;VALUE=DATE:20251230
 SUMMARY:Reserva: Reserved - Colibri
 DESCRIPTION:Huésped: Reserved\nCabaña: Colibri\nNoches: 4\nTotal: $0.0\nPagado: $0.0\nNotas: Airbnb booking - Reserved
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -98,18 +98,7 @@ DTEND;VALUE=DATE:20260124
 SUMMARY:Reserva: Juano y Tomás - Colibri
 DESCRIPTION:Huésped: Juano y Tomás\nCabaña: Colibri\nNoches: 7\nTotal: $490.0\nPagado: $0.0
 LOCATION:Colibri - Cabaña
-DTSTAMP:20250903T083047Z
-STATUS:CONFIRMED
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:reservation-Reserved-20260202@cabana.com
-DTSTART;VALUE=DATE:20260202
-DTEND;VALUE=DATE:20260210
-SUMMARY:Reserva: Reserved - Airbnb Booking
-DESCRIPTION:Huésped: Reserved\nCabaña: Airbnb Booking\nNoches: 8\nTotal: $0.0\nPagado: $0.0\nNotas: Airbnb booking - Reserved
-LOCATION:Airbnb Booking - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT
@@ -120,7 +109,7 @@ DTEND;VALUE=DATE:20260210
 SUMMARY:Reserva: Alejandro - Colibrí
 DESCRIPTION:Huésped: Alejandro\nCabaña: Colibrí\nNoches: 8\nTotal: $520.0\nPagado: $260.0
 LOCATION:Colibrí - Cabaña
-DTSTAMP:20250903T083047Z
+DTSTAMP:20250903T083254Z
 STATUS:CONFIRMED
 TRANSP:OPAQUE
 END:VEVENT

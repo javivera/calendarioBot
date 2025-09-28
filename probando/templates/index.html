@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Chat with Gemini</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        #micButton {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 20px 40px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #micButton:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        #micButton.recording {
+            background: #f44336;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 16px;
+            min-height: 24px;
+        }
+        
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 100px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .response.empty {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Audio Chat with Gemini</h1>
+        
+        <div class="controls">
+            <button id="micButton">🎤 Start Recording</button>
+        </div>
+        
+        <div class="status" id="status">Click the microphone to start recording</div>
+        
+        <div class="response empty" id="response">
+            Your conversation will appear here...
+        </div>
+    </div>
+
+    <script>
+        class AudioChatApp {
+            constructor() {
+                this.micButton = document.getElementById('micButton');
+                this.status = document.getElementById('status');
+                this.response = document.getElementById('response');
+                this.ws = null;
+                this.mediaRecorder = null;
+                this.isRecording = false;
+                this.audioChunks = [];
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupWebSocket();
+                this.micButton.addEventListener('click', () => this.toggleRecording());
+            }
+            
+            setupWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                this.ws = new WebSocket(`${protocol}//${window.location.host}/audio`);
+                
+                this.ws.onopen = () => {
+                    this.updateStatus('Connected - Ready to record');
+                    this.micButton.disabled = false;
+                };
+                
+                this.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleServerMessage(data);
+                };
+                
+                this.ws.onclose = () => {
+                    this.updateStatus('Disconnected - Refresh page to reconnect');
+                    this.micButton.disabled = true;
+                };
+                
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.showError('Connection error occurred');
+                };
+            }
+            
+            handleServerMessage(data) {
+                switch(data.type) {
+                    case 'text':
+                        this.showResponse(data.content);
+                        this.updateStatus('Response received');
+                        break;
+                    case 'audio':
+                        this.playAudioData(data.data, data.format);
+                        break;
+                    case 'error':
+                        this.showError(data.message);
+                        break;
+                    default:
+                        console.log('Unknown message type:', data);
+                }
+            }
+            
+            playAudioData(base64Data, format) {
+                try {
+                    // Convert base64 to blob
+                    const binaryString = atob(base64Data);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    const blob = new Blob([bytes], { type: `audio/${format}` });
+                    const audioUrl = URL.createObjectURL(blob);
+                    
+                    // Create and play audio element
+                    const audio = new Audio(audioUrl);
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        this.updateStatus('Ready to record again');
+                    };
+                    audio.onerror = (e) => {
+                        console.error('Audio playback error:', e);
+                        this.updateStatus('Audio playback failed');
+                    };
+                    
+                    this.updateStatus('Playing AI response...');
+                    audio.play();
+                    
+                } catch (error) {
+                    console.error('Error playing audio:', error);
+                    this.showError('Failed to play audio response');
+                }
+            }
+            
+            async toggleRecording() {
+                if (this.isRecording) {
+                    this.stopRecording();
+                } else {
+                    await this.startRecording();
+                }
+            }
+            
+            async startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: 16000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        }
+                    });
+                    
+                    this.audioChunks = [];
+                    this.mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.sendAudioToServer();
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    this.micButton.textContent = '🛑 Stop Recording';
+                    this.micButton.classList.add('recording');
+                    this.updateStatus('Recording... Click stop when finished');
+                    
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    this.showError('Could not access microphone. Please check permissions.');
+                }
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.isRecording) {
+                    this.mediaRecorder.stop();
+                    this.isRecording = false;
+                    this.micButton.textContent = '🎤 Start Recording';
+                    this.micButton.classList.remove('recording');
+                    this.updateStatus('Processing audio...');
+                }
+            }
+            
+            async sendAudioToServer() {
+                if (this.audioChunks.length === 0) {
+                    this.showError('No audio data recorded');
+                    return;
+                }
+                
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                
+                // Convert to base64 and send as JSON
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64Audio = reader.result.split(',')[1];
+                    this.ws.send(JSON.stringify({
+                        type: 'audio',
+                        audio: base64Audio,
+                        mime_type: 'audio/webm'
+                    }));
+                };
+                reader.readAsDataURL(audioBlob);
+                
+                this.updateStatus('Sending to Gemini...');
+            }
+            
+            updateStatus(message) {
+                this.status.textContent = message;
+            }
+            
+            showResponse(text) {
+                this.response.textContent = text;
+                this.response.classList.remove('empty');
+                this.updateStatus('Ready to record again');
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = `Error: ${message}`;
+                this.response.parentNode.insertBefore(errorDiv, this.response);
+                this.updateStatus('Ready to record again');
+                
+                // Remove error after 5 seconds
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+        }
+        
+        // Initialize the app when page loads
+        window.addEventListener('load', () => {
+            new AudioChatApp();
+        });
+    </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 import os
+import shutil
 import logging
 from icalendar import Calendar
 
@@ -250,14 +251,80 @@ class AirbnbCalendarSync:
         
         return None
     
+    def backup_reservations(self):
+        """Create a single daily timestamped backup of the reservations CSV in a 'backup' folder.
+
+        This function will only create one backup per calendar day. It keeps a marker file
+        named `.last_backup_date` inside the backup folder that contains the ISO date of the
+        last backup. If the marker matches today's date, no new backup is created.
+        """
+        try:
+            if not os.path.exists(self.csv_file):
+                logger.info(f"ℹ️ No reservations file to backup: {self.csv_file}")
+                return None
+
+            csv_dir = os.path.dirname(os.path.abspath(self.csv_file))
+            backup_dir = os.path.join(csv_dir, 'backup')
+            os.makedirs(backup_dir, exist_ok=True)
+
+            marker_path = os.path.join(backup_dir, '.last_backup_date')
+            today_str = datetime.now().date().isoformat()
+
+            # If marker exists and matches today, skip creating a new backup
+            try:
+                if os.path.exists(marker_path):
+                    with open(marker_path, 'r', encoding='utf-8') as f:
+                        last_date = f.read().strip()
+                    if last_date == today_str:
+                        logger.info(f"ℹ️ Backup already created today ({today_str}), skipping")
+                        return None
+            except Exception:
+                # If reading marker fails, continue and attempt to create a backup
+                logger.debug("⚠️ Could not read backup marker, proceeding to create backup")
+
+            base = os.path.splitext(os.path.basename(self.csv_file))[0]
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_name = f"{base}_{timestamp}.csv"
+            backup_path = os.path.join(backup_dir, backup_name)
+
+            shutil.copy2(self.csv_file, backup_path)
+
+            # Update marker file with today's date
+            try:
+                with open(marker_path, 'w', encoding='utf-8') as f:
+                    f.write(today_str)
+            except Exception:
+                logger.warning("⚠️ Failed to write backup marker file")
+
+            logger.info(f"💾 Backed up {self.csv_file} to {backup_path}")
+            return backup_path
+
+        except Exception as e:
+            logger.error(f"❌ Failed to backup reservations: {e}")
+            return None
+
     def save_reservations(self, df):
         """Save the updated reservations to CSV"""
         try:
             # Sort by check-in date
             df = df.sort_values('check_in_dates')
             
+            # Ensure price_per_night sits after total_nights if present
+            if 'price_per_night' in df.columns and 'total_nights' in df.columns:
+                cols = list(df.columns)
+                while 'price_per_night' in cols:
+                    cols.remove('price_per_night')
+                insert_index = cols.index('total_nights') + 1
+                cols.insert(insert_index, 'price_per_night')
+                df = df[cols]
+            
             # Save to CSV
             df.to_csv(self.csv_file, index=False)
+            logger.info(f"✅ Saved {len(df)} reservations to {self.csv_file}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error saving reservations: {e}")
+
             logger.info(f"✅ Saved {len(df)} reservations to {self.csv_file}")
             
         except Exception as e:
@@ -266,6 +333,11 @@ class AirbnbCalendarSync:
     def sync_calendar(self):
         """Main sync function"""
         logger.info("🔄 Starting Airbnb calendar sync")
+        # Backup current reservations file before making changes
+        try:
+            self.backup_reservations()
+        except Exception:
+            logger.exception("❌ Unexpected error while creating reservations backup")
         
         # Fetch Airbnb calendar
         ical_data = self.fetch_airbnb_calendar()
