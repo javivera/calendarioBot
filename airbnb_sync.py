@@ -12,6 +12,17 @@ import os
 import shutil
 import logging
 from icalendar import Calendar
+import unicodedata
+
+
+def normalize_text(s):
+    """Normalize text by removing accents, trimming, and lowercasing."""
+    if s is None:
+        return ''
+    s = str(s)
+    nkfd = unicodedata.normalize('NFKD', s)
+    without_accents = ''.join([c for c in nkfd if not unicodedata.combining(c)])
+    return without_accents.encode('ascii', 'ignore').decode('ascii').strip().lower()
 
 # Configure logging
 logging.basicConfig(
@@ -24,26 +35,51 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class AirbnbCalendarSync:
-    def __init__(self, airbnb_url, csv_file='reservations.csv'):
-        self.airbnb_url = airbnb_url
+    def __init__(self, airbnb_urls, csv_file='reservations.csv'):
+        """airbnb_urls may be a single URL string or a list of dicts {'url':..., 'cabin':...}
+        """
         self.csv_file = csv_file
         self.airbnb_guest_name = "Airbnb Guest"
         self.airbnb_cabin = "Airbnb Booking"
+
+        # Patterns (normalized) considered as missing/placeholder guest names or notes
+        self._airbnb_placeholder_summaries = set([
+            normalize_text('Airbnb Booking'),
+            normalize_text('Airbnb (Not available)'),
+            normalize_text('airbnb (not available)'),
+            normalize_text('airbnb guest'),
+            normalize_text('airbnb')
+        ])
+
+        # Normalize incoming sources into a list of dicts with 'url' and 'cabin'
+        if isinstance(airbnb_urls, str):
+            self.airbnb_sources = [{'url': airbnb_urls, 'cabin': self.airbnb_cabin}]
+        elif isinstance(airbnb_urls, list):
+            normalized = []
+            for item in airbnb_urls:
+                if isinstance(item, str):
+                    normalized.append({'url': item, 'cabin': self.airbnb_cabin})
+                elif isinstance(item, dict) and 'url' in item:
+                    cabin = item.get('cabin', self.airbnb_cabin)
+                    normalized.append({'url': item['url'], 'cabin': cabin})
+            self.airbnb_sources = normalized
+        else:
+            raise ValueError('airbnb_urls must be a string or a list')
         
-    def fetch_airbnb_calendar(self):
-        """Fetch the Airbnb calendar from the URL"""
+    def fetch_airbnb_calendar(self, url):
+        """Fetch the Airbnb calendar from the provided URL"""
         try:
-            logger.info(f"Fetching Airbnb calendar from: {self.airbnb_url}")
-            response = requests.get(self.airbnb_url, timeout=30)
+            logger.info(f"Fetching Airbnb calendar from: {url}")
+            response = requests.get(url, timeout=30)
             response.raise_for_status()
-            
+
             logger.info("✅ Successfully fetched Airbnb calendar")
             return response.text
-            
+
         except requests.RequestException as e:
-            logger.error(f"❌ Error fetching Airbnb calendar: {e}")
+            logger.error(f"❌ Error fetching Airbnb calendar ({url}): {e}")
             return None
-    
+
     def parse_airbnb_calendar(self, ical_data):
         """Parse the iCal data from Airbnb"""
         try:
@@ -129,15 +165,25 @@ class AirbnbCalendarSync:
         return df_filtered
     
     def add_airbnb_reservations(self, df, blocked_dates):
-        """Add new Airbnb reservations to the dataframe, skipping those without a guest name."""
+        """Add new Airbnb reservations to the dataframe, skipping those without a guest name.
+
+        Each booking in `blocked_dates` may include a 'cabin' key which will be used
+        for the reservation's `cabin` column. If absent, `self.airbnb_cabin` is used.
+
+        Returns a tuple `(df, conflicts)` where `conflicts` is a list of dicts with
+        details for each non-touching overlap detected. `df` will include any safe
+        additions (bookings that did not conflict).
+        """
         new_reservations = []
         skipped_count = 0
         skipped_no_guest = 0
+        conflicts = []
 
         for booking in blocked_dates:
             start_date = booking['start']
             end_date = booking['end']
             summary = booking.get('summary', '').strip()
+            cabin_name = booking.get('cabin', self.airbnb_cabin)
 
             # Skip if no guest name in summary
             if not summary or summary.lower() in ['airbnb booking', '']:
@@ -160,14 +206,25 @@ class AirbnbCalendarSync:
                 skipped_count += 1
                 continue
 
-            # Check if this reservation overlaps with any existing reservation
-            overlapping_reservation = self.find_overlapping_reservation(df, start_date, end_date)
+            # Check if this reservation overlaps with any existing reservation for the same cabin
+            overlapping_reservation = self.find_overlapping_reservation(df, start_date, end_date, cabin=cabin_name)
             if overlapping_reservation is not None:
-                logger.info(f"⏩ Skipping Airbnb reservation due to overlap: {start_date.date()} to {end_date.date()}")
+                # A non-touching overlap was detected (find_overlapping_reservation returns a row for these)
+                logger.info(f"🚫 Detected non-touching overlap with existing reservation ({overlapping_reservation.get('guest_names', '')}): {start_date.date()} to {end_date.date()} (cabin: {cabin_name})")
                 skipped_count += 1
+                conflicts.append({
+                    'new_guest': summary,
+                    'new_start': pd.to_datetime(start_date).date(),
+                    'new_end': pd.to_datetime(end_date).date(),
+                    'cabin': cabin_name,
+                    'existing_guest': overlapping_reservation.get('guest_names', ''),
+                    'existing_start': pd.to_datetime(overlapping_reservation['check_in_dates']).date(),
+                    'existing_end': pd.to_datetime(overlapping_reservation['check_out_dates']).date()
+                })
+                # Do not add this booking; continue checking others so we can report all conflicts
                 continue
 
-            logger.info(f"➕ Adding new Airbnb reservation: {start_date.date()} to {end_date.date()} for guest '{summary}'")
+            logger.info(f"➕ Adding new Airbnb reservation: {start_date.date()} to {end_date.date()} for guest '{summary}' (cabin: {cabin_name})")
 
             # Create reservation entry
             reservation = {
@@ -179,7 +236,7 @@ class AirbnbCalendarSync:
                 'reservation_total': 0,
                 'reservation_payed': 0,
                 'notes': f'Airbnb booking - {summary}',
-                'cabin': self.airbnb_cabin
+                'cabin': cabin_name
             }
 
             new_reservations.append(reservation)
@@ -196,59 +253,83 @@ class AirbnbCalendarSync:
         if skipped_no_guest > 0:
             logger.info(f"⏩ Skipped {skipped_no_guest} reservations with missing guest name")
 
-        return df
+        return df, conflicts
     
     def clean_cancelled_airbnb_reservations(self, df, blocked_dates):
-        """Remove Airbnb reservations that are no longer in the Airbnb calendar"""
+        """Remove Airbnb reservations that are no longer in the Airbnb calendars.
+
+        This function now considers the `cabin` when matching existing Airbnb reservations
+        to the current blocked periods coming from the feeds.
+        """
         if df.empty:
             return df
-        
-        # Get all current Airbnb blocked date ranges (date only, not datetime)
+
+        # Get all current Airbnb blocked date ranges including cabin
         current_airbnb_dates = set()
         for booking in blocked_dates:
             start_date = pd.to_datetime(booking['start']).date()
             end_date = pd.to_datetime(booking['end']).date()
-            current_airbnb_dates.add((start_date, end_date))
-        
+            cabin = booking.get('cabin', self.airbnb_cabin)
+            current_airbnb_dates.add((start_date, end_date, cabin))
+
         # Find Airbnb reservations that are no longer in the calendar
         airbnb_reservations = df[df.apply(lambda row: self.is_airbnb_reservation(
             row['guest_names'], row['notes']), axis=1)]
-        
+
         reservations_to_remove = []
         for idx, reservation in airbnb_reservations.iterrows():
             check_in = pd.to_datetime(reservation['check_in_dates']).date()
             check_out = pd.to_datetime(reservation['check_out_dates']).date()
-            
-            # If this reservation is not in the current Airbnb calendar, mark for removal
-            if (check_in, check_out) not in current_airbnb_dates:
+            cabin = reservation.get('cabin', self.airbnb_cabin)
+
+            # If this reservation (with cabin) is not in the current Airbnb calendars, mark for removal
+            if (check_in, check_out, cabin) not in current_airbnb_dates:
                 reservations_to_remove.append(idx)
-        
+
         if reservations_to_remove:
             df = df.drop(reservations_to_remove)
             logger.info(f"🧹 Removed {len(reservations_to_remove)} cancelled Airbnb reservations")
-        
+
         return df
     
-    def find_overlapping_reservation(self, df, start_date, end_date):
-        """Check if a reservation overlaps with any existing reservation"""
+    def find_overlapping_reservation(self, df, start_date, end_date, cabin=None):
+        """Check if a reservation overlaps with any existing reservation for the same cabin.
+
+        Overlap rule modification:
+        - Consider overlaps only within the same `cabin`.
+        - Allow insertion only when the overlap is exactly where the new booking's start == existing end
+          or new booking's end == existing start (i.e., touching at a single boundary). Otherwise treat as overlap.
+        """
         if df.empty:
             return None
-        
-        # Convert dates to date objects for comparison (ignore time)
+
+        # Normalize to date objects
         start_date = pd.to_datetime(start_date).date()
         end_date = pd.to_datetime(end_date).date()
-        
-        # Check for any overlapping reservations
+
         for idx, row in df.iterrows():
+            # Only consider same-cabin rows (if cabin provided)
+            if cabin is not None and str(row.get('cabin', '')).strip().lower() != str(cabin).strip().lower():
+                continue
+
             existing_start = pd.to_datetime(row['check_in_dates']).date()
             existing_end = pd.to_datetime(row['check_out_dates']).date()
-            
-            # Check if dates overlap
-            # Two date ranges overlap if: start1 < end2 AND start2 < end1
+
+            # If the ranges are identical, count as overlap
+            if start_date == existing_start and end_date == existing_end:
+                logger.info(f"🚫 Exact overlap detected with {row['guest_names']}: {existing_start} to {existing_end}")
+                return row
+
+            # General overlap check
             if start_date < existing_end and existing_start < end_date:
+                # Allow if they only touch at the boundary: new.start == existing.end or new.end == existing.start
+                if start_date == existing_end or end_date == existing_start:
+                    # touching boundary is acceptable (no overlap in occupancy)
+                    logger.info(f"🔁 Touching boundary with {row['guest_names']}: {existing_start} to {existing_end}")
+                    return None
                 logger.info(f"🚫 Overlap detected with {row['guest_names']}: {existing_start} to {existing_end}")
                 return row
-        
+
         return None
     
     def backup_reservations(self):
@@ -339,40 +420,64 @@ class AirbnbCalendarSync:
         except Exception:
             logger.exception("❌ Unexpected error while creating reservations backup")
         
-        # Fetch Airbnb calendar
-        ical_data = self.fetch_airbnb_calendar()
-        if not ical_data:
-            logger.error("❌ Failed to fetch Airbnb calendar")
-            return False
-        
-        # Parse blocked dates
-        blocked_dates = self.parse_airbnb_calendar(ical_data)
-        if not blocked_dates:
-            logger.info("ℹ️  No blocked dates found in Airbnb calendar")
+        # Aggregate blocked dates from all configured Airbnb sources
+        all_blocked = []
+        for src in self.airbnb_sources:
+            url = src['url']
+            cabin = src.get('cabin', self.airbnb_cabin)
+            ical_data = self.fetch_airbnb_calendar(url)
+            if not ical_data:
+                logger.warning(f"⚠️ Skipping source due to fetch failure: {url}")
+                continue
+
+            blocked = self.parse_airbnb_calendar(ical_data)
+            # Tag each booking with the cabin source
+            for b in blocked:
+                b['cabin'] = cabin
+            all_blocked.extend(blocked)
+
+        if not all_blocked:
+            logger.info("ℹ️  No blocked dates found in any Airbnb calendar source")
             return True
-        
+
         # Load existing reservations
         df = self.load_reservations()
-        
-        # Remove Airbnb reservations that are no longer in the Airbnb calendar
-        df = self.clean_cancelled_airbnb_reservations(df, blocked_dates)
-        
+
+        # Remove Airbnb reservations that are no longer in the Airbnb calendars
+        df = self.clean_cancelled_airbnb_reservations(df, all_blocked)
+
         # Add new Airbnb reservations (duplicates are automatically checked)
-        df = self.add_airbnb_reservations(df, blocked_dates)
-        
-        # Save updated reservations
+        df, conflicts = self.add_airbnb_reservations(df, all_blocked)
+
+        # Save safe additions
         self.save_reservations(df)
-        
+
+        # If conflicts were found, print short message and details for review
+        if conflicts:
+            logger.warning(f"⚠️ Found {len(conflicts)} conflicts while processing Airbnb calendars. Please review the logs for details.")
+            print(f"⚠️ Airbnb sync detected {len(conflicts)} conflict(s). Details:")
+            for c in conflicts:
+                print(f" - Cabin: {c.get('cabin')} | New: {c.get('new_guest')} {c.get('new_start')} -> {c.get('new_end')} | Existing: {c.get('existing_guest')} {c.get('existing_start')} -> {c.get('existing_end')}")
+
         logger.info("🎉 Airbnb calendar sync completed successfully")
         return True
-
 def run_continuous_sync():
-    """Run the sync continuously every hour"""
-    airbnb_url = "https://www.airbnb.com/calendar/ical/36870432.ics?s=52f050865b49d6a3f095e1f8bcb2fb0a"
-    sync = AirbnbCalendarSync(airbnb_url)
-    
+    """Run the sync continuously every hour for multiple Airbnb sources"""
+    sources = [
+        {
+            'url': 'https://www.airbnb.com/calendar/ical/36870432.ics?s=52f050865b49d6a3f095e1f8bcb2fb0a',
+            'cabin': 'Colibri'
+        },
+        {
+            'url': 'https://www.airbnb.com/calendar/ical/1520255215239969187.ics?s=827aa9a5237f3cc3f1a16bb8e72c6e33',
+            'cabin': 'Peperina'
+        }
+    ]
+
+    sync = AirbnbCalendarSync(sources)
+
     logger.info("🚀 Starting continuous Airbnb calendar sync (every hour)")
-    
+
     while True:
         try:
             sync.sync_calendar()
@@ -386,10 +491,20 @@ def run_continuous_sync():
             logger.info("⏰ Waiting 1 hour before retry...")
             time.sleep(3600)
 
+
 def run_single_sync():
-    """Run sync once"""
-    airbnb_url = "https://www.airbnb.com/calendar/ical/36870432.ics?s=52f050865b49d6a3f095e1f8bcb2fb0a"
-    sync = AirbnbCalendarSync(airbnb_url)
+    """Run sync once for multiple Airbnb sources"""
+    sources = [
+        {
+            'url': 'https://www.airbnb.com/calendar/ical/36870432.ics?s=52f050865b49d6a3f095e1f8bcb2fb0a',
+            'cabin': 'Colibri'
+        },
+        {
+            'url': 'https://www.airbnb.com/calendar/ical/1520255215239969187.ics?s=827aa9a5237f3cc3f1a16bb8e72c6e33',
+            'cabin': 'Peperina'
+        }
+    ]
+    sync = AirbnbCalendarSync(sources)
     return sync.sync_calendar()
 
 if __name__ == "__main__":

@@ -7,13 +7,19 @@ This script manually updates the calendar.ics file from the reservations.csv dat
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import unicodedata
 import shutil
 import subprocess
 import sys
 
 
 def csv_to_ics():
-    """Convert CSV reservations to ICS calendar format"""
+    """Convert CSV reservations to ICS calendar format and generate per-cabin ICS files.
+
+    Returns the full calendar ICS text (all reservations) as a string. In addition,
+    this function writes `servidorCalendario/peperina.ics` and `servidorCalendario/colibri.ics`
+    when there are reservations for those cabins.
+    """
     
     # Read the CSV file
     try:
@@ -30,68 +36,100 @@ def csv_to_ics():
         print("⚠️  No reservations found in CSV file")
         return ""
     
-    # ICS file header
-    ics_content = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//Cabaña Reservations//EN",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH"
-    ]
-    
-    # Add each reservation as an event
-    for _, reservation in df.iterrows():
-        # Format dates for ICS (YYYYMMDD format)
-        check_in = reservation['check_in_dates'].strftime('%Y%m%d')
-        check_out = reservation['check_out_dates'].strftime('%Y%m%d')
-        
-        # Create a unique ID for the event
-        guest_name_clean = reservation['guest_names'].replace(' ', '-').replace(',', '')
-        uid = f"reservation-{guest_name_clean}-{check_in}@cabana.com"
-        
-        # Create event summary
-        summary = f"Reserva: {reservation['guest_names']} - {reservation['cabin']}"
-        
-        # Create description with all details
-        description_parts = [
-            f"Huésped: {reservation['guest_names']}",
-            f"Cabaña: {reservation['cabin']}",
-            f"Noches: {reservation['total_nights']}",
-            f"Total: ${reservation['reservation_total']}",
-            f"Pagado: ${reservation['reservation_payed']}"
+    # Helper to build ICS from a DataFrame
+    def build_ics_from_df(res_df):
+        parts = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Cabaña Reservations//EN",
+            "CALSCALE:GREGORIAN",
+            "METHOD:PUBLISH"
         ]
-        
-        # Add phone number if available
-        if pd.notna(reservation['cellphone_numbers']) and str(reservation['cellphone_numbers']).strip():
-            description_parts.append(f"Teléfono: {reservation['cellphone_numbers']}")
-        
-        # Add notes if available
-        if pd.notna(reservation['notes']) and str(reservation['notes']).strip():
-            description_parts.append(f"Notas: {reservation['notes']}")
-        
-        description = "\\n".join(description_parts)
-        
-        # Add event to ICS content
-        ics_content.extend([
-            "BEGIN:VEVENT",
-            f"UID:{uid}",
-            f"DTSTART;VALUE=DATE:{check_in}",
-            f"DTEND;VALUE=DATE:{check_out}",
-            f"SUMMARY:{summary}",
-            f"DESCRIPTION:{description}",
-            f"LOCATION:{reservation['cabin']} - Cabaña",
-            f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
-            "STATUS:CONFIRMED",
-            "TRANSP:OPAQUE",
-            "END:VEVENT"
-        ])
-        
-        print(f"  📅 Added: {reservation['guest_names']} ({reservation['cabin']}) - {check_in} to {check_out}")
-    
-    # ICS file footer
-    ics_content.append("END:VCALENDAR")
-    
-    return '\n'.join(ics_content)
+
+        for _, reservation in res_df.iterrows():
+            check_in = reservation['check_in_dates'].strftime('%Y%m%d')
+            check_out = reservation['check_out_dates'].strftime('%Y%m%d')
+            guest_name_clean = str(reservation.get('guest_names', '')).replace(' ', '-').replace(',', '')
+            uid = f"reservation-{guest_name_clean}-{check_in}@cabana.com"
+            summary = f"Reserva: {reservation.get('guest_names', '')} - {reservation.get('cabin', '')}"
+
+            description_parts = [
+                f"Huésped: {reservation.get('guest_names', '')}",
+                f"Cabaña: {reservation.get('cabin', '')}",
+                f"Noches: {reservation.get('total_nights', '')}",
+                f"Total: ${reservation.get('reservation_total', '')}",
+                f"Pagado: ${reservation.get('reservation_payed', '')}"
+            ]
+
+            if pd.notna(reservation.get('cellphone_numbers')) and str(reservation.get('cellphone_numbers')).strip():
+                description_parts.append(f"Teléfono: {reservation.get('cellphone_numbers')}")
+            if pd.notna(reservation.get('notes')) and str(reservation.get('notes')).strip():
+                description_parts.append(f"Notas: {reservation.get('notes')}")
+
+            description = "\\n".join(description_parts)
+
+            parts.extend([
+                "BEGIN:VEVENT",
+                f"UID:{uid}",
+                f"DTSTART;VALUE=DATE:{check_in}",
+                f"DTEND;VALUE=DATE:{check_out}",
+                f"SUMMARY:{summary}",
+                f"DESCRIPTION:{description}",
+                f"LOCATION:{reservation.get('cabin', '')} - Cabaña",
+                f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+                "STATUS:CONFIRMED",
+                "TRANSP:OPAQUE",
+                "END:VEVENT"
+            ])
+
+            print(f"  📅 Added: {reservation.get('guest_names', '')} ({reservation.get('cabin', '')}) - {check_in} to {check_out}")
+
+        parts.append("END:VCALENDAR")
+        return '\n'.join(parts)
+
+    # Build full calendar ICS (all reservations)
+    full_ics = build_ics_from_df(df)
+
+    # Ensure output directories exist
+    create_directories()
+
+    # Generate per-cabin ICS files for Peperina and Colibri (case-insensitive and accent-insensitive)
+    def normalize(text: str) -> str:
+        """Normalize text by removing accents and lowercasing."""
+        if text is None:
+            return ""
+        # Decompose unicode characters and remove diacritics
+        nfkd = unicodedata.normalize('NFKD', str(text))
+        only_ascii = ''.join([c for c in nfkd if not unicodedata.combining(c)])
+        return only_ascii.strip().lower()
+
+    target_cabins = ['Peperina', 'Colibri']
+    normalized_target = {c: normalize(c) for c in target_cabins}
+
+    # Create a normalized cabin column for matching
+    df['_cabin_normalized'] = df['cabin'].astype(str).apply(normalize)
+
+    for cabin in target_cabins:
+        norm = normalized_target[cabin]
+        cabin_df = df[df['_cabin_normalized'] == norm]
+        if cabin_df.empty:
+            print(f"⚠️  No reservations for {cabin}")
+            continue
+
+        cabin_ics = build_ics_from_df(cabin_df)
+        cabin_filename = f"servidorCalendario/{normalize(cabin)}.ics"
+        try:
+            with open(cabin_filename, 'w', encoding='utf-8') as f:
+                f.write(cabin_ics)
+            print(f"✅ Created {cabin_filename}")
+        except Exception as e:
+            print(f"❌ Failed to write {cabin_filename}: {e}")
+
+    # Clean up temporary column
+    if '_cabin_normalized' in df.columns:
+        df.drop(columns=['_cabin_normalized'], inplace=True)
+
+    return full_ics
 
 
 def create_directories():
@@ -155,9 +193,11 @@ def push_to_servidor_repository():
             print("❌ servidorCalendario is not a git repository")
             return False
             
-        # Add the updated calendar.ics file
-        subprocess.run(['git', 'add', 'calendar.ics'], cwd=servidor_path)
-        print("✅ Added calendar.ics to servidorCalendario git")
+        # Add the updated calendar and per-cabin ICS files
+        files_to_add = ['calendar.ics', 'peperina.ics', 'colibri.ics']
+        for fname in files_to_add:
+            subprocess.run(['git', 'add', fname], cwd=servidor_path)
+            print(f"✅ Added {fname} to servidorCalendario git")
         
         # Create commit message with timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

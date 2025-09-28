@@ -1,5 +1,0 @@
-flask==3.0.0
-flask-sock==0.6.0
-google-genai==0.2.2
-openai==1.54.3
-python-dotenv==1.0.0
