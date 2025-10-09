@@ -11,6 +11,7 @@ import time
 import os
 import shutil
 import logging
+import subprocess
 from icalendar import Calendar
 import unicodedata
 
@@ -385,7 +386,7 @@ class AirbnbCalendarSync:
             return None
 
     def save_reservations(self, df):
-        """Save the updated reservations to CSV"""
+        """Save the updated reservations to CSV and return success boolean."""
         try:
             # Sort by check-in date
             df = df.sort_values('check_in_dates')
@@ -402,15 +403,20 @@ class AirbnbCalendarSync:
             # Save to CSV
             df.to_csv(self.csv_file, index=False)
             logger.info(f"✅ Saved {len(df)} reservations to {self.csv_file}")
+            return True
             
         except Exception as e:
             logger.error(f"❌ Error saving reservations: {e}")
+            return False
 
-            logger.info(f"✅ Saved {len(df)} reservations to {self.csv_file}")
-            
-        except Exception as e:
-            logger.error(f"❌ Error saving reservations: {e}")
-    
+    def push_changes_to_repo(self, commit_message=None):
+        """Git push disabled: this stub does not perform any git operations.
+
+        Returns True to indicate no action was taken and to avoid triggering warnings
+        in calling code.
+        """
+        logger.info("ℹ️ Git push disabled in airbnb_sync.py; skipping any git operations.")
+        return True
     def sync_calendar(self):
         """Main sync function"""
         logger.info("🔄 Starting Airbnb calendar sync")
@@ -450,7 +456,13 @@ class AirbnbCalendarSync:
         df, conflicts = self.add_airbnb_reservations(df, all_blocked)
 
         # Save safe additions
-        self.save_reservations(df)
+        saved = self.save_reservations(df)
+
+        # Always attempt to push saved changes to servidorCalendario repo (no env needed)
+        if saved:
+            pushed = self.push_changes_to_repo()
+            if not pushed:
+                logger.warning("⚠️ Reservations saved locally but failed to push to repository")
 
         # If conflicts were found, print short message and details for review
         if conflicts:
@@ -460,7 +472,17 @@ class AirbnbCalendarSync:
                 print(f" - Cabin: {c.get('cabin')} | New: {c.get('new_guest')} {c.get('new_start')} -> {c.get('new_end')} | Existing: {c.get('existing_guest')} {c.get('existing_start')} -> {c.get('existing_end')}")
 
         logger.info("🎉 Airbnb calendar sync completed successfully")
+
+        # After saving reservations, regenerate ICS files by invoking update_calendar
+        try:
+            logger.info("🔄 Running update_calendar.py to regenerate ICS files")
+            import update_calendar
+            update_calendar.update_calendar(push_to_git=True)
+        except Exception as e:
+            logger.exception(f"❌ Failed to run update_calendar.py: {e}")
+
         return True
+
 def run_continuous_sync():
     """Run the sync continuously every hour for multiple Airbnb sources"""
     sources = [
@@ -490,6 +512,7 @@ def run_continuous_sync():
             logger.error(f"❌ Unexpected error: {e}")
             logger.info("⏰ Waiting 1 hour before retry...")
             time.sleep(3600)
+
 
 
 def run_single_sync():

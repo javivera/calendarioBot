@@ -6,7 +6,9 @@ import unicodedata
 import random
 import subprocess
 import shutil
+import requests
 from dotenv import load_dotenv
+import update_calendar
 
 # Load environment variables
 load_dotenv()
@@ -90,17 +92,33 @@ def csv_to_ics():
                 f"Noches: {reservation['total_nights']}"
             ]
 
-            has_ars_pricing = (reservation.get('price_per_night_ARS', 0) > 0 or 
-                              reservation.get('reservation_total_ARS', 0) > 0 or
-                              reservation.get('reservation_payed_ARS', 0) > 0)
+            def _to_float_safe(v):
+                try:
+                    if str(v).strip() in ('', 'nan', 'None'):
+                        return 0.0
+                    return float(v)
+                except Exception:
+                    return 0.0
+
+            price_per_night_ARS = _to_float_safe(reservation.get('price_per_night_ARS', 0))
+            reservation_total_ARS = _to_float_safe(reservation.get('reservation_total_ARS', 0))
+            reservation_payed_ARS = _to_float_safe(reservation.get('reservation_payed_ARS', 0))
+
+            has_ars_pricing = (price_per_night_ARS > 0) or (reservation_total_ARS > 0) or (reservation_payed_ARS > 0)
 
             if has_ars_pricing:
-                if reservation.get('price_per_night_ARS', 0) > 0:
-                    description_parts.append(f"Precio por noche: ${reservation.get('price_per_night_ARS', 0)} ARS")
-                if reservation.get('reservation_total_ARS', 0) > 0:
-                    description_parts.append(f"Total: ${reservation.get('reservation_total_ARS', 0)} ARS")
-                if reservation.get('reservation_payed_ARS', 0) > 0:
-                    description_parts.append(f"Pagado: ${reservation.get('reservation_payed_ARS', 0)} ARS")
+                if price_per_night_ARS > 0:
+                    description_parts.append(f"Precio por noche: ${price_per_night_ARS} ARS")
+                if reservation_total_ARS > 0:
+                    description_parts.append(f"Total: ${reservation_total_ARS} ARS")
+                else:
+                    usd_total = reservation.get('reservation_total', '')
+                    if str(usd_total).strip() not in ('', 'nan', 'None'):
+                        description_parts.append(f"Total: ${usd_total} USD")
+                if reservation_payed_ARS > 0:
+                    description_parts.append(f"Pagado: ${reservation_payed_ARS} ARS")
+                else:
+                    description_parts.append(f"Pagado: ${reservation.get('reservation_payed')} USD")
             else:
                 description_parts.append(f"Precio por noche: ${reservation.get('price_per_night', 150)} USD")
                 description_parts.append(f"Total: ${reservation['reservation_total']} USD")
@@ -330,7 +348,7 @@ def day_month_spanish() -> str:
 def make_reservation(guest_name, check_in_date, cabin, total_nights, cellphone_number="", notes="", price_per_night=0, price_per_night_ARS=0, reservation_total_ARS=0, total_price=0, reservation_payed_ARS=0,reservation_payed=0):
     print(f"--> Debug: Making reservation for {guest_name} on {check_in_date} for {total_nights} nights.")
     global reservations_df
-
+    
     if total_nights == 0 and total_price == 0:
         return "Error: Total nights or total price must be provided."
     
@@ -680,6 +698,47 @@ def get_calendar_link():
         f"🌐 {calendar_url}\n\n"
     )
 
+def get_dollar_price():
+    """Fetch the 'contado con liqui' dollar price from dolarapi.com and return a concise dict.
+
+    Returns: dict with keys: success(bool), buy(float|None), sell(float|None), raw(dict|list)
+    """
+    url = "https://dolarapi.com/v1/dolares/contadoconliqui"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Accept either list or dict
+        if isinstance(data, list) and data:
+            item = data[0]
+        elif isinstance(data, dict):
+            item = data
+        else:
+            return {"success": False, "error": "Unexpected API response format", "raw": data}
+
+        # Normalize fields
+        buy = item.get('compra') or item.get('buy') or item.get('valor_compra')
+        sell = item.get('venta') or item.get('sell') or item.get('valor_venta')
+
+        def _to_float(v):
+            if v is None:
+                return None
+            if isinstance(v, (int, float)):
+                return float(v)
+            try:
+                s = str(v).replace('.', '').replace(',', '.')
+                return float(s)
+            except Exception:
+                return None
+
+        buy_f = _to_float(buy)
+        sell_f = _to_float(sell)
+
+        return {"success": True, "buy": buy_f, "sell": sell_f, "raw": item}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # === MAIN PROGRAM ===
 reservations_df = load_reservations()
 
@@ -690,7 +749,48 @@ if not api_key:
 # Configure Gemini API
 genai.configure(api_key=api_key)
 
-tools = [make_reservation, delete_reservation, read_the_reservation_schedule, modify_reservation, get_calendar_link,day_month_spanish]
+def gemini_update_calendar(push_to_git: bool = False):
+    """
+    Safe wrapper for gemini_update_calendar exposed to Gemini.
+
+    - Logs calls to `assistant_audit.log` with a timestamp and the result.
+    - Requires `push_to_git=True` to perform git pushes; default is False.
+    - Returns a simple dict suitable for tool-based responses: {"success": bool, "message": str}.
+    """
+    try:
+        audit_path = "assistant_audit.log"
+        from datetime import datetime as _dt
+        _ts = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(audit_path, "a", encoding="utf-8") as _f:
+            _f.write(f"{_ts} - gemini_update_calendar called with push_to_git={push_to_git}\n")
+
+        # Call the underlying function with an explicit argument
+        result = gemini_update_calendar(push_to_git=push_to_git)
+
+        msg = "Pushed to git" if result else "Updated calendar (no push or push failed)"
+        with open(audit_path, "a", encoding="utf-8") as _f:
+            _f.write(f"{_ts} - result: {result}\n")
+
+        return {"success": bool(result), "message": msg}
+    except Exception as e:
+        try:
+            with open("assistant_audit.log", "a", encoding="utf-8") as _f:
+                _f.write(f"{_ts} - exception: {e}\n")
+        except Exception:
+            pass
+        return {"success": False, "message": str(e)}
+
+
+tools = [
+    make_reservation,
+    delete_reservation,
+    read_the_reservation_schedule,
+    modify_reservation,
+    get_calendar_link,
+    day_month_spanish,
+    get_dollar_price,
+    gemini_update_calendar,
+]
 
 system_prompt = f"""You are a helpful reservation assistant for Cabañas Las Chacras. In order to check today's date 
 is you can use day_month_spanish function. Before making a new reservation, check for existing bookings and ensure 
@@ -708,11 +808,14 @@ but when in doubt ask the user which currency he is referring to. Try to give sh
 not always, when ending a conversation say a reasuring phrase like 'No te preocupes, todo está bajo control.' or 
 'Todo está bien, no hay de qué preocuparse.'. If the user asks for the calendar link, calendar, or wants to see 
 reservations online, use the get_calendar_link function to provide them with the calendar website link. When making a 
-new reservation you should always, NO EXCEPTION, ask for: guest name, check-in date and cabin name, always ask for all this, 
-dont assume. Then you either need a check out date or the total nights in which case you can calculate 
+new reservation you should always, NO EXCEPTION, ask for: guest name, check-in date and cabin name (cabin name will be peperina or colibri.. 
+if the user asks for sometin simillar and its a typo just correct it.. if you are not sure which cabin is being referenced, ask the user), 
+always ask for all this, dont assume. Then you either need a check out date or the total nights in which case you can calculate 
 the check-out date. Then you need total price (in ARS or USD) or price per night in wich case you can calculate the 
 total price using total nights. If no reservation_payed is given you should ask if there was any made in anticipation.
-Before making any reservation of modification always present the user with the pertinent information and ask for confrimation"""
+Before making any reservation of modification always present the user with the pertinent information and ask for confrimation. 
+if you need to get dolar peso price use the get_dollar_price function. If the user tells you theres been a new reservation on airbnb you 
+should run gemini_update_calendar and report back the result to the user. Always confirm actions before executing them."""
 
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',

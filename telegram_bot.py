@@ -316,7 +316,7 @@ class TelegramBot:
                 )
                 return
             
-            logger.info(f"💬 Message from {username} ({user_id}): {user_message}")
+            # The combined user+Gemini log will be emitted after we receive Gemini's response.
             
             # Check if the message is asking for calendar link
             calendar_keywords = ['calendario', 'calendar', 'link', 'enlace', 'ver reservas', 'pagina', 'web']
@@ -337,6 +337,21 @@ class TelegramBot:
             # Send message to Gemini (your existing chat logic)
             logger.info("🧠 Sending message to Gemini AI...")
             response = main.chat.send_message(user_message)
+
+            # Log the user's message together with Gemini's reply in a single line
+            try:
+                gemini_text = getattr(response, 'text', None)
+                if gemini_text is None:
+                    gemini_text = str(response)
+            except Exception:
+                gemini_text = '<could not read response>'
+
+            # Include timestamp for Gemini reply to match user message format
+            gemini_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(
+                f"💬 Message from {username} ({user_id}): {user_message} \n"
+                f"🧠 Gemini ({gemini_time}): {gemini_text}"
+            )
             
             # Split long messages if needed (Telegram has a 4096 character limit)
             if len(response.text) > 4000:

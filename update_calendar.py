@@ -53,13 +53,51 @@ def csv_to_ics():
             uid = f"reservation-{guest_name_clean}-{check_in}@cabana.com"
             summary = f"Reserva: {reservation.get('guest_names', '')} - {reservation.get('cabin', '')}"
 
+            # Build description parts and prefer ARS pricing fields when present
             description_parts = [
                 f"Huésped: {reservation.get('guest_names', '')}",
                 f"Cabaña: {reservation.get('cabin', '')}",
-                f"Noches: {reservation.get('total_nights', '')}",
-                f"Total: ${reservation.get('reservation_total', '')}",
-                f"Pagado: ${reservation.get('reservation_payed', '')}"
+                f"Noches: {reservation.get('total_nights', '')}"
             ]
+
+            # Determine whether ARS pricing should be used
+            def _to_float_safe(v):
+                try:
+                    if str(v).strip() in ('', 'nan', 'None'):
+                        return 0.0
+                    return float(v)
+                except Exception:
+                    return 0.0
+
+            price_per_night_ARS = _to_float_safe(reservation.get('price_per_night_ARS', 0))
+            reservation_total_ARS = _to_float_safe(reservation.get('reservation_total_ARS', 0))
+            reservation_payed_ARS = _to_float_safe(reservation.get('reservation_payed_ARS', 0))
+
+            has_ars_pricing = (price_per_night_ARS > 0) or (reservation_total_ARS > 0) or (reservation_payed_ARS > 0)
+
+            if has_ars_pricing:
+                if price_per_night_ARS > 0:
+                    description_parts.append(f"Precio por noche: ${price_per_night_ARS} ARS")
+                # Show ARS Total when available
+                if reservation_total_ARS > 0:
+                    description_parts.append(f"Total: ${reservation_total_ARS} ARS")
+                else:
+                    # If ARS total not available, attempt to show USD total if present
+                    usd_total = reservation.get('reservation_total', '')
+                    if str(usd_total).strip() not in ('', 'nan', 'None'):
+                        description_parts.append(f"Total: ${usd_total} USD")
+
+                if reservation_payed_ARS > 0:
+                    description_parts.append(f"Pagado: ${reservation_payed_ARS} ARS")
+                else:
+                    paid_usd = reservation.get('reservation_payed', '')
+                    description_parts.append(f"Pagado: ${paid_usd} USD")
+            else:
+                # Fallback to USD pricing
+                price_per_night_usd = reservation.get('price_per_night', '')
+                description_parts.append(f"Precio por noche: ${price_per_night_usd} USD")
+                description_parts.append(f"Total: ${reservation.get('reservation_total', '')} USD")
+                description_parts.append(f"Pagado: ${reservation.get('reservation_payed', '')} USD")
 
             if pd.notna(reservation.get('cellphone_numbers')) and str(reservation.get('cellphone_numbers')).strip():
                 description_parts.append(f"Teléfono: {reservation.get('cellphone_numbers')}")
