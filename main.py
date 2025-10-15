@@ -256,10 +256,11 @@ def push_to_servidor_repository():
             print(f"✅ Committed changes to servidorCalendario: {commit_message}")
             
             # Push to GitHub
-            push_result = subprocess.run(['git', 'push'], 
+            push_result = subprocess.run(['git', 'push','-f'], 
                                        capture_output=True, 
                                        text=True, 
                                        cwd=servidor_path)
+            print(push_result)
             
             if push_result.returncode == 0:
                 print("🚀 Successfully pushed to servidorCalendario repository!")
