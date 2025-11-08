@@ -1,0 +1,8 @@
+python-telegram-bot
+pandas
+google-generativeai
+openai-whisper
+ffmpeg-python
+requests
+icalendar
+python-dotenv

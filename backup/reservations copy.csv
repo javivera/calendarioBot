@@ -1,0 +1,19 @@
+guest_names,check_in_dates,check_out_dates,cellphone_numbers,total_nights,price_per_night,reservation_total,reservation_payed,notes,cabin,reservation_total_ARS,reservation_payed_ARS,price_per_night_ARS
+Diego Gustavino,2025-08-14,2025-08-17,,3.0,60.0,180.0,0.0,Es por booking.,Colibrí,0.0,0.0,0.0
+Alejandro,2026-02-02,2026-02-10,,8.0,65.0,520.0,260.0,,Colibrí,0.0,0.0,0.0
+Juano y Tomás,2026-01-17,2026-01-24,,7.0,70.0,490.0,147,,Colibri,0.0,0.0,0.0
+Sebastián Piallis,2025-09-19,2025-09-22,,3.0,150.0,180.0,81.0,Vienen por Booking,Colibrí,0.0,0.0,0.0
+Pablo,2025-11-21,2025-11-24,,3.0,0,0,0.0,,Colibri,240000.0,72000,80000.0
+Andro,2025-09-27,2025-09-29,,2.0,0,0,0.0,,Colibrí,120000.0,36000.0,60000.0
+Matías,2025-09-12,2025-09-14,,2.0,0,0,0.0,,Colibri,130000.0,39000.0,65000.0
+Juan Cruz,2025-10-17,2025-10-20,,3.0,0,0,0.0,,Colibri,210000.0,63000.0,70000.0
+Maxi,2025-09-29,2025-10-01,,2.0,0,0,0.0,,Colibrí,140000.0,70000.0,70000.0
+Sebastián,2025-10-05,2025-10-07,,2.0,0,0,0.0,,Colibrí,140000.0,70000.0,70000.0
+Victoria Gisoni,2025-09-08,2025-09-12,,4.0,0,0,0.0,,Colibri,240000.0,72000.0,60000.0
+Juana,2025-09-15,2025-09-19,,4.0,0,0,0.0,,Colibri,252000.0,75000.0,63000.0
+Victor,2025-08-08,2025-08-10,,2.0,0.0,0.0,0.0,,Colibrí,156000.0,156000.0,78000.0
+Nicolás,2025-08-01,2025-08-03,,2.0,0.0,0.0,0.0,,Colibrí,160000.0,160000.0,80000.0
+Esteban,2025-08-18,2025-08-25,,7.0,0.0,0.0,0.0,,Colibrí,420000.0,420000.0,60000.0
+Bernardo Scherman,2025-07-20,2025-08-01,,13.0,0.0,0.0,0.0,No estoy segura cuanto pagó,Colibri,936000.0,936000.0,72000.0
+Reserved,2025-12-26,2025-12-30,,4.0,,,,Airbnb booking - Reserved,Airbnb Booking,,,
+Reserved,2025-12-30,2026-01-04,,5.0,,,,Airbnb booking - Reserved,Airbnb Booking,,,
